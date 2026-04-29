@@ -52,6 +52,7 @@ client.on('data', (data) => {
         ]);
 
         console.log('Sending Codec 8 Packet...');
+        console.log('Contoh data dari teltonika...');
         client.write(codec8Packet);
     } 
     // Jika server membalas dengan 4 byte, itu adalah ACK jumlah data
