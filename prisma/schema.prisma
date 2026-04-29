@@ -1,0 +1,287 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model alert_categories {
+  id                  String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  alert_category_code String?   @unique @db.VarChar(50)
+  alert_category_name String?   @db.VarChar(150)
+  status              String?   @db.VarChar(20)
+  created_at          DateTime? @default(now()) @db.Timestamp(6)
+  created_by          String?   @db.Uuid
+  updated_at          DateTime? @db.Timestamp(6)
+  updated_by          String?   @db.Uuid
+}
+
+model alerts {
+  id                BigInt                   @id @default(autoincrement())
+  equipment_id      String?                  @db.Uuid
+  log_id            BigInt?
+  location          Unsupported("geometry")?
+  is_inside         Boolean?
+  orig_fid          Int?
+  location_category String?                  @db.VarChar(100)
+  segment           String?                  @db.VarChar(100)
+  speed             Decimal?                 @db.Decimal(10, 2)
+  fuel_level        Decimal?                 @db.Decimal(10, 2)
+  vessel            String?                  @db.VarChar(100)
+  mileage           Decimal?                 @db.Decimal(12, 2)
+  vessel_status     String?                  @db.VarChar(50)
+  engine_status     Boolean?
+  status            String?                  @db.VarChar(20)
+  resolved_at       DateTime?                @db.Timestamp(6)
+  resolved_by       String?                  @db.Uuid
+  created_at        DateTime?                @default(now()) @db.Timestamp(6)
+  created_by        String?                  @db.Uuid
+  updated_at        DateTime?                @db.Timestamp(6)
+  updated_by        String?                  @db.Uuid
+  equipments        equipments?              @relation(fields: [equipment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  equipment_logs    equipment_logs?          @relation(fields: [log_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([equipment_id, created_at(sort: Desc)], map: "idx_alerts_equipment_time")
+}
+
+model auth_sessions {
+  id            String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id       String?   @db.Uuid
+  access_token  String?
+  refresh_token String?
+  expired_at    DateTime? @db.Timestamp(6)
+  created_at    DateTime? @default(now()) @db.Timestamp(6)
+  users         users?    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model companies {
+  id           String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  company_code String?    @unique @db.VarChar(50)
+  company_name String?    @db.VarChar(150)
+  status       String?    @db.VarChar(20)
+  created_at   DateTime?  @default(now()) @db.Timestamptz(6)
+  created_by   String?    @db.VarChar(30)
+  updated_at   DateTime?  @db.Timestamptz(6)
+  updated_by   String?    @db.VarChar(30)
+  projects     projects[]
+}
+
+model devices {
+  id             String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  device_code    String?          @unique @db.VarChar(50)
+  device_name    String?          @db.VarChar(150)
+  provider_name  String?          @db.VarChar(100)
+  sim_number     String?          @db.VarChar(50)
+  device_model   String?          @db.VarChar(100)
+  equipment_id   String?          @db.Uuid
+  status         String?          @db.VarChar(20)
+  created_at     DateTime?        @default(now()) @db.Timestamp(6)
+  created_by     String?          @db.Uuid
+  updated_at     DateTime?        @db.Timestamp(6)
+  updated_by     String?          @db.Uuid
+  equipments     equipments?      @relation(fields: [equipment_id], references: [id], onUpdate: NoAction)
+  equipment_logs equipment_logs[]
+
+  @@index([equipment_id], map: "idx_device_equipment")
+}
+
+model equipment_logs {
+  id                BigInt                   @id @default(autoincrement())
+  time              DateTime                 @db.Timestamp(6)
+  equipment_id      String?                  @db.Uuid
+  device_id         String?                  @db.Uuid
+  location          Unsupported("geometry")?
+  is_inside         Boolean?
+  orig_fid          Int?
+  category_location String?                  @db.VarChar(100)
+  segment           String?                  @db.VarChar(100)
+  speed             Decimal?                 @db.Decimal(10, 2)
+  fuel_level        Decimal?                 @db.Decimal(10, 2)
+  vessel            String?                  @db.VarChar(100)
+  mileage           Decimal?                 @db.Decimal(12, 2)
+  vessel_status     String?                  @db.VarChar(50)
+  engine_status     Boolean?
+  status            String?                  @db.VarChar(20)
+  created_at        DateTime?                @default(now()) @db.Timestamp(6)
+  created_by        String?                  @db.Uuid
+  updated_at        DateTime?                @db.Timestamp(6)
+  updated_by        String?                  @db.Uuid
+  alerts            alerts[]
+  devices           devices?                 @relation(fields: [device_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  equipments        equipments?              @relation(fields: [equipment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  equipment_status  equipment_status[]
+  fuels             fuels[]
+  geofences         geofences[]
+
+  @@index([device_id, time(sort: Desc)], map: "idx_logs_device_time")
+  @@index([equipment_id, time(sort: Desc)], map: "idx_logs_equipment_time")
+  @@index([location], map: "idx_logs_location", type: Gist)
+}
+
+model equipment_status {
+  equipment_id      String                   @id @db.Uuid
+  log_id            BigInt?
+  location          Unsupported("geometry")?
+  is_inside         Boolean?
+  orig_fid          Int?
+  location_category String?                  @db.VarChar(100)
+  segment           String?                  @db.VarChar(100)
+  speed             Decimal?                 @db.Decimal(10, 2)
+  fuel_level        Decimal?                 @db.Decimal(10, 2)
+  vessel            String?                  @db.VarChar(100)
+  mileage           Decimal?                 @db.Decimal(12, 2)
+  vessel_status     String?                  @db.VarChar(50)
+  engine_status     Boolean?
+  status            String?                  @db.VarChar(20)
+  created_at        DateTime?                @default(now()) @db.Timestamp(6)
+  created_by        String?                  @db.Uuid
+  updated_at        DateTime?                @db.Timestamp(6)
+  updated_by        String?                  @db.Uuid
+  equipments        equipments               @relation(fields: [equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  equipment_logs    equipment_logs?          @relation(fields: [log_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([location], map: "idx_status_location", type: Gist)
+}
+
+model equipments {
+  id               String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  equipment_code   String?           @unique @db.VarChar(50)
+  equipment_alias  String?           @db.VarChar(150)
+  type             String?           @db.VarChar(50)
+  brand            String?           @db.VarChar(50)
+  model            String?           @db.VarChar(50)
+  class            String?           @db.VarChar(50)
+  project_id       String?           @db.Uuid
+  status           String?           @db.VarChar(20)
+  created_at       DateTime?         @default(now()) @db.Timestamp(6)
+  created_by       String?           @db.Uuid
+  updated_at       DateTime?         @db.Timestamp(6)
+  updated_by       String?           @db.Uuid
+  alerts           alerts[]
+  devices          devices[]
+  equipment_logs   equipment_logs[]
+  equipment_status equipment_status?
+  projects         projects?         @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  fuels            fuels[]
+  geofences        geofences[]
+
+  @@index([project_id], map: "idx_equipment_project")
+}
+
+model fuels {
+  id                BigInt                   @id @default(autoincrement())
+  equipment_id      String?                  @db.Uuid
+  log_id            BigInt?
+  fuel_level        Decimal?                 @db.Decimal(10, 2)
+  fuel_volume       Decimal?                 @db.Decimal(10, 2)
+  fuel_temperature  Decimal?                 @db.Decimal(10, 2)
+  description       String?                  @db.VarChar(255)
+  location          Unsupported("geometry")?
+  is_inside         Boolean?
+  orig_fid          Int?
+  location_category String?                  @db.VarChar(100)
+  segment           String?                  @db.VarChar(100)
+  speed             Decimal?                 @db.Decimal(10, 2)
+  vessel            String?                  @db.VarChar(100)
+  mileage           Decimal?                 @db.Decimal(12, 2)
+  vessel_status     String?                  @db.VarChar(50)
+  engine_status     Boolean?
+  status            String?                  @db.VarChar(20)
+  created_at        DateTime?                @default(now()) @db.Timestamp(6)
+  created_by        String?                  @db.Uuid
+  updated_at        DateTime?                @db.Timestamp(6)
+  updated_by        String?                  @db.Uuid
+  equipments        equipments?              @relation(fields: [equipment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  equipment_logs    equipment_logs?          @relation(fields: [log_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([equipment_id, created_at(sort: Desc)], map: "idx_fuel_equipment_time")
+}
+
+model projects {
+  id             String                   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  project_code   String?                  @unique @db.VarChar(50)
+  project_name   String?                  @db.VarChar(150)
+  company_id     String?                  @db.Uuid
+  image          String?
+  geojson_origin Json?
+  geom_origin    Unsupported("geometry")?
+  status         String?                  @db.VarChar(20)
+  created_at     DateTime?                @default(now()) @db.Timestamp(6)
+  created_by     String?                  @db.Uuid
+  updated_at     DateTime?                @db.Timestamp(6)
+  updated_by     String?                  @db.Uuid
+  equipments     equipments[]
+  companies      companies?               @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([company_id], map: "idx_projects_company")
+  @@index([geom_origin], map: "idx_projects_geom", type: Gist)
+}
+
+model shift {
+  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  shift_code String?   @unique @db.VarChar(50)
+  shift_name String?   @db.VarChar(100)
+  status     String?   @db.VarChar(20)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  created_by String?   @db.Uuid
+  updated_at DateTime? @db.Timestamp(6)
+  updated_by String?   @db.Uuid
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model spatial_ref_sys {
+  srid      Int     @id
+  auth_name String? @db.VarChar(256)
+  auth_srid Int?
+  srtext    String? @db.VarChar(2048)
+  proj4text String? @db.VarChar(2048)
+}
+
+model users {
+  id            String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  project_id    String?         @db.Uuid
+  name          String?         @db.VarChar(150)
+  email         String          @unique @db.VarChar(150)
+  password_hash String
+  role          String?         @db.VarChar(50)
+  status        String?         @default("active") @db.VarChar(20)
+  created_at    DateTime?       @default(now()) @db.Timestamp(6)
+  created_by    String?         @db.Uuid
+  updated_at    DateTime?       @db.Timestamp(6)
+  updated_by    String?         @db.Uuid
+  auth_sessions auth_sessions[]
+}
+
+model geofences {
+  id                BigInt                   @id @default(autoincrement())
+  equipment_id      String?                  @db.Uuid
+  log_id            BigInt?
+  alert_category    String?                  @db.VarChar(50)
+  event             String?                  @db.VarChar(10)
+  is_alert          Boolean?
+  description       String?                  @db.VarChar(255)
+  location          Unsupported("geometry")?
+  is_inside         Boolean?
+  orig_fid          Int?
+  location_category String?                  @db.VarChar(100)
+  segment           String?                  @db.VarChar(100)
+  speed             Decimal?                 @db.Decimal(10, 2)
+  fuel_level        Decimal?                 @db.Decimal(10, 2)
+  vessel            String?                  @db.VarChar(100)
+  mileage           Decimal?                 @db.Decimal(12, 2)
+  vessel_status     String?                  @db.VarChar(50)
+  engine_status     Boolean?
+  status            String?                  @db.VarChar(20)
+  resolved_at       DateTime?                @db.Timestamp(6)
+  resolved_by       String?                  @db.Uuid
+  created_at        DateTime?                @default(now()) @db.Timestamp(6)
+  created_by        String?                  @db.Uuid
+  updated_at        DateTime?                @db.Timestamp(6)
+  updated_by        String?                  @db.Uuid
+  equipments        equipments?              @relation(fields: [equipment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  equipment_logs    equipment_logs?          @relation(fields: [log_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([location], map: "idx_geofence_location", type: Gist)
+}
