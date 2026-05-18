@@ -11,7 +11,9 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
 
-  app.setGlobalPrefix('api/v1');
+  // Prefix Global: semua endpoint akan diawali /fms/api
+  // Contoh: http://localhost:3000/fms/api/vehicles
+  app.setGlobalPrefix('fms/api');
 
   // 1. Global Pipes (Validasi DTO)
   app.useGlobalPipes(
@@ -33,21 +35,24 @@ async function bootstrap() {
     .setTitle('Fleet Management System API')
     .setDescription('API Documentation for FMS Enterprise Backend')
     .setVersion('1.0')
-    .addBearerAuth() // Opsional: Untuk persiapan fitur JWT Auth di Fase 2
+    .addBearerAuth()
     .build();
+
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  // Endpoint untuk mengakses dokumentasi (http://localhost:3000/api/docs)
-  SwaggerModule.setup('api/docs', app, document);
+
+  // Setup Swagger agar bisa diakses di: http://localhost:3000/fms/api/docs
+  // Parameter pertama adalah PATH-nya
+  SwaggerModule.setup('fms/api/docs', app, document);
 
   app.enableCors();
 
   const port = configService.get<number>('port') ?? 3000;
   await app.listen(port);
+
+  // Update Log agar link-nya benar saat diklik di terminal
+  logger.log(`🚀 FMS API is running on: http://localhost:${port}/fms/api`);
   logger.log(
-    `🚀 FMS API is running on: http://localhost:${port}/api/v1`,
-  );
-  logger.log(
-    `📚 Swagger Doc is available on: http://localhost:${port}/api/docs`,
+    `📚 Swagger Doc is available on: http://localhost:${port}/fms/api/docs`,
   );
 }
 bootstrap();

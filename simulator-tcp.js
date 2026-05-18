@@ -1,8 +1,8 @@
 const net = require('net');
 
-const CLIENT_PORT = 8888;
-const CLIENT_HOST = '127.0.0.1';
-const IMEI = 'FMC125-001';
+const CLIENT_PORT = 5000;
+const CLIENT_HOST = '192.168.3.212';
+const IMEI = '863719065713472';
 
 const client = new net.Socket();
 
@@ -53,6 +53,7 @@ client.on('data', (data) => {
 
         console.log('Sending Codec 8 Packet...');
         console.log('Contoh data dari teltonika...');
+        console.log('Contoh data dari teltonika caoba lagi...');
         client.write(codec8Packet);
     } 
     // Jika server membalas dengan 4 byte, itu adalah ACK jumlah data
