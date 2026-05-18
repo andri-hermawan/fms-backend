@@ -8,7 +8,7 @@ import { EquipmentStatusService } from '../equipment-status/equipment-status.ser
 @Injectable()
 export class TeltonikaTcpService implements OnModuleInit, OnModuleDestroy {
   private server!: net.Server;
-  private readonly PORT = 5000;
+  private readonly PORT = 5550;
 
   constructor(
     private readonly parserService: TeltonikaParserService,
