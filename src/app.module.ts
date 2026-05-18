@@ -16,6 +16,7 @@ import { AlertsModule } from './modules/alerts/alerts.module';
 import { GeofencesModule } from './modules/geofences/geofences.module';
 import { FuelsModule } from './modules/fuels/fuels.module';
 import { EquipmentStatusModule } from './modules/equipment-status/equipment-status.module';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -45,5 +46,7 @@ import { EquipmentStatusModule } from './modules/equipment-status/equipment-stat
     EquipmentStatusModule,
     // Nanti module seperti Companies, Users, dll akan masuk ke sini
   ],
+  controllers: [AppController], // Registrasikan AppController di sini
+  providers: [],
 })
 export class AppModule {}

@@ -1,8 +1,8 @@
 const net = require('net');
 
-const CLIENT_PORT = 8888;
-const CLIENT_HOST = '127.0.0.1';
-const IMEI = 'FMC125-001';
+const CLIENT_PORT = 5000;
+const CLIENT_HOST = '192.168.3.212';
+const IMEI = '863719065713472';
 
 const client = new net.Socket();
 

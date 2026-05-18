@@ -30,7 +30,20 @@ export class ProjectsRepository {
   }): Promise<[projects[], number]> {
     const { skip, take, where, orderBy } = params;
     return await this.prisma.$transaction([
-      this.prisma.projects.findMany({ skip, take, where, orderBy }),
+      this.prisma.projects.findMany({
+        skip,
+        take,
+        where,
+        orderBy,
+        include: {
+          companies: {
+            select: {
+              company_code: true,
+              company_name: true,
+            },
+          },
+        },
+      }),
       this.prisma.projects.count({ where }),
     ]);
   }
