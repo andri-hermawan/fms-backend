@@ -6,5 +6,6 @@ import { FuelsController } from './fuels.controller';
 @Module({
   controllers: [FuelsController],
   providers: [FuelsService, FuelsRepository],
+  exports: [FuelsService, FuelsRepository],
 })
 export class FuelsModule {}

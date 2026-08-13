@@ -55,15 +55,45 @@ export class CreateFuelDto {
   @IsNumber()
   longitude?: number;
 
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  is_inside?: boolean;
+
+  @ApiPropertyOptional({ example: 123 })
+  @IsNumber()
+  @IsOptional()
+  orig_fid?: number;
+
   @ApiPropertyOptional({ example: 'Pit Stop A' })
   @IsOptional()
   @IsString()
   location_category?: string;
 
+  @ApiPropertyOptional({ example: 'Segment Name' })
+  @IsString()
+  @IsOptional()
+  segment?: string;
+
   @ApiPropertyOptional({ example: 20.0 })
   @IsOptional()
   @IsNumber()
   speed?: number;
+
+  @ApiPropertyOptional({ example: '300' })
+  @IsString()
+  @IsOptional()
+  vessel?: string;
+
+  @ApiPropertyOptional({ example: 12 })
+  @IsNumber()
+  @IsOptional()
+  mileage?: number;
+
+  @ApiPropertyOptional({ example: 'EMPTY' })
+  @IsString()
+  @IsOptional()
+  vessel_status?: string;
 
   @ApiPropertyOptional({ example: true })
   @IsOptional()
@@ -74,4 +104,24 @@ export class CreateFuelDto {
   @IsOptional()
   @IsString()
   status?: string;
+
+  @ApiPropertyOptional({ example: 85.5 })
+  @IsOptional()
+  @IsNumber()
+  fuel_percentage?: number;
+
+  @ApiPropertyOptional({ example: -10.5 })
+  @IsOptional()
+  @IsNumber()
+  fuel_difference?: number;
+
+  @ApiPropertyOptional({ example: 'FUEL DECREASE' })
+  @IsOptional()
+  @IsString()
+  event_type?: string;
+
+  @ApiPropertyOptional({ example: 'SHIFT 1' })
+  @IsOptional()
+  @IsString()
+  shift?: string;
 }

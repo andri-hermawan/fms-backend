@@ -17,8 +17,8 @@ export class FuelsService {
     );
   }
 
-  async create(dto: CreateFuelDto, userId: string) {
-    return await this.repository.create(dto, userId);
+  async create(dto: CreateFuelDto) {
+    return await this.repository.create(dto);
   }
 
   async findAll(query: QueryFuelDto) {

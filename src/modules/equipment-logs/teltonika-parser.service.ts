@@ -83,6 +83,11 @@ export class TeltonikaParserService {
         // Analog
         analog_input_1: ioData['9'] ?? null,
 
+        // Accelerometer
+        accelerometer_x: ioData['17'] ?? null,
+        accelerometer_y: ioData['18'] ?? null,
+        accelerometer_z: ioData['19'] ?? null,
+
         // UL2022
         ul202: ioData['327'] ?? null,
 

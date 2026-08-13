@@ -83,13 +83,46 @@ export class ProjectsService {
     return project;
   }
 
+  // async update(id: string, dto: UpdateProjectDto) {
+  //   // 1. Pastikan project ada
+  //   const existingProject = await this.findOne(id);
+
+  //   // 2. Validasi duplikasi project_code jika ada perubahan code
+  //   if (dto.project_code && dto.project_code !== existingProject.project_code) {
+  //     const duplicate = await this.repository.findByCode(dto.project_code);
+  //     if (duplicate) {
+  //       throw new ConflictException(
+  //         `Project code '${dto.project_code}' is already in use`,
+  //       );
+  //     }
+  //   }
+
+  //   // 3. Validasi company_id jika ada perubahan
+  //   if (dto.company_id) {
+  //     await this.companiesService.findOne(dto.company_id);
+  //   }
+
+  //   // 4. Update data dasar via Prisma
+  //   const updatedProject = await this.repository.update(id, {
+  //     ...dto,
+  //     updated_at: new Date(),
+  //   });
+
+  //   // 5. Update Geometri jika ada data geojson_origin baru di dalam DTO
+  //   if (dto.geojson_origin?.features?.length > 0) {
+  //     const geometry = dto.geojson_origin.features[0].geometry;
+  //     await this.repository.updateGeometry(id, geometry);
+  //   }
+
+  //   return updatedProject;
+  // }
+
   async update(id: string, dto: UpdateProjectDto) {
-    // 1. Pastikan project ada
     const existingProject = await this.findOne(id);
 
-    // 2. Validasi duplikasi project_code jika ada perubahan code
     if (dto.project_code && dto.project_code !== existingProject.project_code) {
       const duplicate = await this.repository.findByCode(dto.project_code);
+
       if (duplicate) {
         throw new ConflictException(
           `Project code '${dto.project_code}' is already in use`,
@@ -97,21 +130,27 @@ export class ProjectsService {
       }
     }
 
-    // 3. Validasi company_id jika ada perubahan
     if (dto.company_id) {
       await this.companiesService.findOne(dto.company_id);
     }
 
-    // 4. Update data dasar via Prisma
+    let extractedGeometry = null;
+
+    if (
+      dto.geojson_origin &&
+      dto.geojson_origin.type === 'FeatureCollection' &&
+      dto.geojson_origin.features.length > 0
+    ) {
+      extractedGeometry = dto.geojson_origin.features[0].geometry;
+    }
+
     const updatedProject = await this.repository.update(id, {
       ...dto,
       updated_at: new Date(),
     });
 
-    // 5. Update Geometri jika ada data geojson_origin baru di dalam DTO
-    if (dto.geojson_origin?.features?.length > 0) {
-      const geometry = dto.geojson_origin.features[0].geometry;
-      await this.repository.updateGeometry(id, geometry);
+    if (extractedGeometry) {
+      await this.repository.updateGeometry(id, extractedGeometry);
     }
 
     return updatedProject;

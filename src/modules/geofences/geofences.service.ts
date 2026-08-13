@@ -17,8 +17,8 @@ export class GeofencesService {
     );
   }
 
-  async create(dto: CreateGeofenceDto, userId: string) {
-    return await this.repository.create(dto, userId);
+  async create(dto: CreateGeofenceDto) {
+    return await this.repository.create(dto);
   }
 
   async findAll(query: QueryGeofenceDto) {
@@ -66,5 +66,61 @@ export class GeofencesService {
   async remove(id: string) {
     await this.findOne(id); // Validasi keberadaan data
     return await this.repository.delete(BigInt(id));
+  }
+
+  async getPassing(query: QueryGeofenceDto) {
+    const {
+      page = 1,
+      limit = 10,
+      equipment_code,
+      segment,
+      start_date,
+      end_date,
+    } = query;
+
+    const pageNumber = Number(page);
+    const limitNumber = Number(limit);
+
+    const [total, rows] = await this.repository.getPassing({
+      skip: (pageNumber - 1) * limitNumber,
+      take: limitNumber,
+      equipment_code,
+      segment,
+      start_date: start_date ? new Date(start_date) : undefined,
+      end_date: end_date ? new Date(end_date) : undefined,
+    });
+
+    return {
+      data: rows.map((item) => ({
+        id: Number(item.id),
+        equipment_code: item.equipment_code,
+        time: item.time,
+        event: item.event,
+      })),
+      meta: {
+        total,
+        page: pageNumber,
+        limit: limitNumber,
+        totalPages: Math.ceil(total / limitNumber),
+      },
+    };
+  }
+
+  async getPassingSummary(query: QueryGeofenceDto) {
+    const { equipment_code, segment, start_date, end_date } = query;
+
+    const rows = await this.repository.getPassingSummary({
+      equipment_code,
+      segment,
+      start_date: start_date ? new Date(start_date) : undefined,
+      end_date: end_date ? new Date(end_date) : undefined,
+    });
+
+    return rows.map((item) => ({
+      hour: item.hour,
+      in: Number(item.in),
+      out: Number(item.out),
+      total: Number(item.total),
+    }));
   }
 }

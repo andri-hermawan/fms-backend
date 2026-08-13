@@ -8,6 +8,6 @@ import { EquipmentsRepository } from './repositories/equipments.repository';
     EquipmentsService,
     EquipmentsRepository, // <--- Ini yang krusial untuk memperbaiki error Anda
   ],
-  exports: [EquipmentsService], // Opsional: jika modul lain butuh service ini
+  exports: [EquipmentsService, EquipmentsRepository], // Opsional: jika modul lain butuh service ini
 })
 export class EquipmentsModule {}

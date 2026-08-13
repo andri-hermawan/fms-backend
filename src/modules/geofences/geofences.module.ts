@@ -6,5 +6,6 @@ import { GeofencesRepository } from './repositories/geofences.repository';
 @Module({
   controllers: [GeofencesController],
   providers: [GeofencesService, GeofencesRepository],
+  exports: [GeofencesService, GeofencesRepository],
 })
 export class GeofencesModule {}

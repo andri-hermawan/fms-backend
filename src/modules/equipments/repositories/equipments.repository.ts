@@ -2,6 +2,18 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { Prisma, equipments } from '@prisma/client';
 
+export type EquipmentWithProject = Prisma.equipmentsGetPayload<{
+  include: {
+    projects: {
+      select: {
+        project_code: true;
+        project_name: true;
+        geojson_origin: true;
+      };
+    };
+  };
+}>;
+
 @Injectable()
 export class EquipmentsRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -29,6 +41,7 @@ export class EquipmentsRepository {
             select: {
               project_code: true,
               project_name: true,
+              geojson_origin: true,
             },
           },
         },
@@ -42,7 +55,7 @@ export class EquipmentsRepository {
     });
   }
 
-  async findById(id: string): Promise<equipments | null> {
+  async findById(id: string): Promise<EquipmentWithProject | null> {
     return await this.prisma.equipments.findUnique({
       where: { id },
       include: {
@@ -50,6 +63,7 @@ export class EquipmentsRepository {
           select: {
             project_code: true,
             project_name: true,
+            geojson_origin: true,
           },
         },
       },

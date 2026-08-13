@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
+import { serializeBigInt } from '../helpers/bigint.helper';
 
 export interface Response<T> {
   statusCode: number;
@@ -34,7 +35,7 @@ export class TransformInterceptor<T> implements NestInterceptor<
           return {
             statusCode,
             message: 'Success',
-            data: res.data,
+            data: serializeBigInt(res.data),
             meta: res.meta,
           };
         }
@@ -43,7 +44,7 @@ export class TransformInterceptor<T> implements NestInterceptor<
         return {
           statusCode,
           message: 'Success',
-          data: res || null,
+          data: res ? serializeBigInt(res) : null,
         };
       }),
     );
