@@ -32,6 +32,10 @@ export class UpsertEquipmentStatusDto {
   fuel_level?: number;
 
   @IsOptional()
+  @IsNumber()
+  alert_count?: number;
+
+  @IsOptional()
   @IsBoolean()
   engine_status?: boolean;
 

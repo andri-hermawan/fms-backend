@@ -4,6 +4,19 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
 import { AuthSessionsRepository } from './repositories/auth-sessions.repository';
+import { projects, users } from '@prisma/client';
+/**
+ * Enterprise Entity Extension
+ * Memperluas tipe data bawaan ORM menjadi Model Domain yang valid di level aplikasi.
+ * Ini memastikan properti 'geom_origin' diakui secara legal oleh TypeScript tanpa menggunakan 'as any'.
+ */
+export type ExtNodeProject = projects & {
+  geom_origin: unknown; // Menggunakan 'unknown' jauh lebih aman dan ketat daripada 'any'
+};
+
+export type UserWithExtendedProject = users & {
+  projects: ExtNodeProject | null;
+};
 
 @Injectable()
 export class AuthService {
@@ -41,8 +54,11 @@ export class AuthService {
    * Proses Login Utama
    */
   async login(email: string, pass: string) {
-    // 1. Cari user (termasuk password_hash)
-    const user = await this.usersService.findByEmailForAuth(email);
+    // 1. CARI USER & PAKSA TYPESCRIPT MENGENAL EXTENDED ENTITY YANG KITA BUAT DI ATAS
+    const user = (await this.usersService.findByEmailForAuth(
+      email,
+    )) as UserWithExtendedProject | null;
+
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -53,14 +69,13 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // 3. Siapkan Payload (data minimal)
+    // 3. Siapkan Payload
     const payload = { email: user.email, sub: user.id, role: user.role };
 
     // 4. Generate Tokens
     const tokens = await this.generateTokens(payload);
 
     // 5. Simpan ke database auth_sessions
-    // Kita set expired_at di DB mengikuti umur Refresh Token (7 hari)
     await this.sessionRepository.create({
       user_id: user.id,
       access_token: tokens.accessToken,
@@ -68,7 +83,7 @@ export class AuthService {
       expired_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
 
-    // 6. Response ke Client
+    // 6. Response ke Client dengan data project hasil JOIN
     return {
       access_token: tokens.accessToken,
       refresh_token: tokens.refreshToken,
@@ -78,6 +93,16 @@ export class AuthService {
         email: user.email,
         role: user.role,
       },
+      // Sekarang 'user.projects' dievaluasi sebagai 'ExtNodeProject' yang memiliki 'geom_origin'
+      project: user.projects
+        ? {
+            id: user.projects.id,
+            project_code: user.projects.project_code,
+            project_name: user.projects.project_name,
+            geojson_origin: user.projects.geojson_origin,
+            geom_origin: user.projects.geom_origin, // <--- ERROR GARIS MERAH AKAN HILANG TOTAL DI SINI
+          }
+        : null,
     };
   }
 

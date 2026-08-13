@@ -6,17 +6,42 @@ import { fuels, Prisma } from '@prisma/client';
 export class FuelsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: any, userId?: string) {
-    const { latitude, longitude, ...rest } = data;
+  async create(data: any) {
+    const { latitude, longitude, log_id, ...rest } = data;
+
+    // Build location geometry using raw SQL fragment
+    const locationWKT = `POINT(${longitude} ${latitude})`;
+
     return await this.prisma.$executeRaw`
       INSERT INTO fuels (
-        equipment_id, location, speed, engine_status, 
-        status, created_by, created_at
+        equipment_id, log_id, fuel_level, fuel_volume, fuel_percentage,
+        fuel_temperature, fuel_difference, event_type, description,
+        location, is_inside, orig_fid, location_category, segment,
+        speed, vessel, mileage, vessel_status, engine_status, status,
+        shift, created_at
       ) VALUES (
         ${rest.equipment_id}::uuid,
-        ST_GeomFromText(${`POINT(${longitude} ${latitude})`}, 4326),
-        ${rest.speed}, ${rest.engine_status}, 
-        ${rest.status || 'open'}, ${userId}::uuid, NOW()
+        ${log_id ? BigInt(log_id) : null},
+        ${rest.fuel_level !== undefined ? rest.fuel_level : null},
+        ${rest.fuel_volume !== undefined ? rest.fuel_volume : null},
+        ${rest.fuel_percentage !== undefined ? rest.fuel_percentage : null},
+        ${rest.fuel_temperature !== undefined ? rest.fuel_temperature : null},
+        ${rest.fuel_difference !== undefined ? rest.fuel_difference : null},
+        ${rest.event_type || null},
+        ${rest.description || null},
+        ST_GeomFromText(${locationWKT}, 4326),
+        ${rest.is_inside !== undefined ? rest.is_inside : null},
+        ${rest.orig_fid !== undefined ? rest.orig_fid : null},
+        ${rest.location_category || null},
+        ${rest.segment || null},
+        ${rest.speed !== undefined ? rest.speed : null},
+        ${rest.vessel || null},
+        ${rest.mileage !== undefined ? rest.mileage : null},
+        ${rest.vessel_status || null},
+        ${rest.engine_status !== undefined ? rest.engine_status : null},
+        ${rest.status || null},
+        ${rest.shift || null},
+        NOW()
       )
     `;
   }

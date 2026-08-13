@@ -15,6 +15,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ShiftsService } from './shifts.service';
@@ -43,6 +44,23 @@ export class ShiftsController {
   })
   findAll(@Query() query: QueryShiftDto) {
     return this.shiftsService.findAll(query);
+  }
+
+  @Get('current/project/:projectId')
+  @ApiOperation({
+    summary: 'Mengecek shift aktif berdasarkan project dan jam sekarang',
+  })
+  @ApiQuery({
+    name: 'time',
+    required: false,
+    description: 'Waktu pengecekan (format HH:mm atau HH:mm:ss)',
+    example: '09:00',
+  })
+  findCurrentByProject(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Query('time') time?: string,
+  ) {
+    return this.shiftsService.findCurrentByProject(projectId, time);
   }
 
   @Get(':id')

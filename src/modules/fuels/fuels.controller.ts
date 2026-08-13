@@ -24,10 +24,16 @@ import { UpdateFuelDto } from './dto/update-fuel.dto';
 export class FuelsController {
   constructor(private readonly service: FuelsService) {}
 
+  // @Post()
+  // @ApiOperation({ summary: 'Trigger fuel baru' })
+  // create(@Body() dto: CreateFuelDto, @GetUser('userId') userId: string) {
+  //   return this.service.create(dto, userId);
+  // }
+
   @Post()
   @ApiOperation({ summary: 'Trigger fuel baru' })
-  create(@Body() dto: CreateFuelDto, @GetUser('userId') userId: string) {
-    return this.service.create(dto, userId);
+  create(@Body() dto: CreateFuelDto) {
+    return this.service.create(dto);
   }
 
   @Get()

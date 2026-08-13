@@ -21,4 +21,8 @@ export class QueryShiftDto {
   @IsOptional()
   @IsString()
   status?: string;
+
+  @IsOptional()
+  @IsString()
+  project_id?: string;
 }

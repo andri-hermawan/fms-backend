@@ -9,7 +9,7 @@ import { UsersRepository } from './repositories/users.repository';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { QueryUserDto } from './dto/query-user.dto';
-import { Prisma, users } from '@prisma/client';
+import { Prisma, projects, users } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -48,7 +48,12 @@ export class UsersService {
       password_hash: hashedPassword,
       role: dto.role,
       status: dto.status || 'active',
-      project_id: dto.project_id,
+      // JIKA dto.project_id ada, gunakan koneksi relasi Prisma
+      ...(dto.project_id && {
+        projects: {
+          connect: { id: dto.project_id },
+        },
+      }),
     });
 
     // 5. Kembalikan data tanpa password_hash
@@ -92,8 +97,13 @@ export class UsersService {
     return this.excludePassword(user);
   }
 
-  async findByEmailForAuth(email: string): Promise<users | null> {
-    const user = await this.repository.findByEmail(email);
+  // ===================================================================
+  // PERUBAHAN DI SINI: Menggunakan method khusus repository & tipe data custom
+  // ===================================================================
+  async findByEmailForAuth(
+    email: string,
+  ): Promise<(users & { projects: projects | null }) | null> {
+    const user = await this.repository.findByEmailWithProject(email);
     if (!user) {
       return null;
     }
@@ -115,7 +125,12 @@ export class UsersService {
       email: dto.email,
       role: dto.role,
       status: dto.status,
-      project_id: dto.project_id,
+      // JIKA dto.project_id ada, gunakan koneksi relasi Prisma
+      ...(dto.project_id && {
+        projects: {
+          connect: { id: dto.project_id },
+        },
+      }),
       updated_at: new Date(),
     };
 

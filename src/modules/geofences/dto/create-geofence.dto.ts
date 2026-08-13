@@ -7,17 +7,18 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
+import { Prisma } from '../../../../generated/prisma/client';
 
 export class CreateGeofenceDto {
   @ApiProperty({ example: 'uuid-equipment-id' })
   @IsNotEmpty()
   @IsUUID()
-  equipment_id!: string;
+  equipment_id?: string;
 
-  @ApiPropertyOptional({ example: 'log-id-string' })
+  @ApiPropertyOptional({ example: '102' })
   @IsOptional()
-  @IsString()
-  log_id?: string;
+  @IsNumber()
+  log_id?: bigint;
 
   @ApiPropertyOptional({ example: 'GEOFENCE_VIOLATION' })
   @IsOptional()
@@ -52,30 +53,60 @@ export class CreateGeofenceDto {
   @ApiPropertyOptional({ example: true })
   @IsOptional()
   @IsBoolean()
-  is_inside?: boolean;
+  is_inside!: boolean | null;
+
+  @ApiProperty({ example: 12 })
+  @IsNotEmpty()
+  @IsNumber()
+  orig_fid?: number | null;
 
   @ApiPropertyOptional({ example: 'PIT A' })
   @IsOptional()
   @IsString()
-  location_category?: string;
+  location_category?: string | null;
 
   @ApiPropertyOptional({ example: 'South Segment' })
   @IsOptional()
   @IsString()
-  segment?: string;
+  segment?: string | null;
 
   @ApiPropertyOptional({ example: 25.5 })
   @IsOptional()
   @IsNumber()
   speed?: number;
 
-  @ApiPropertyOptional({ example: 'active' })
+  @ApiPropertyOptional({ example: 78.5 })
+  @IsOptional()
+  @IsNumber()
+  fuel_level?: number;
+
+  @ApiPropertyOptional({ example: 123 })
   @IsOptional()
   @IsString()
-  status?: string;
+  vessel?: string | null;
+
+  @ApiPropertyOptional({ example: 1250.5 })
+  @IsOptional()
+  @IsNumber()
+  mileage?: Prisma.Decimal | number | null;
+
+  @ApiPropertyOptional({ example: 'MOVING' })
+  @IsOptional()
+  @IsString()
+  vessel_status?: string | null;
 
   @ApiPropertyOptional({ example: true })
   @IsOptional()
   @IsBoolean()
   engine_status?: boolean;
+
+  @ApiPropertyOptional({ example: 'active' })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiPropertyOptional({ example: 'SHIFT 1' })
+  @IsOptional()
+  @IsString()
+  shift?: string | null;
 }

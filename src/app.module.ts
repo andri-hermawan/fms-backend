@@ -17,6 +17,11 @@ import { GeofencesModule } from './modules/geofences/geofences.module';
 import { FuelsModule } from './modules/fuels/fuels.module';
 import { EquipmentStatusModule } from './modules/equipment-status/equipment-status.module';
 import { AppController } from './app.controller';
+import { FuelCalibrationsModule } from './modules/fuel-calibrations/fuel-calibrations.module';
+import { WebSocketModule } from './common/websocket/websocket.module';
+import { SettingOperatorModule } from './modules/setting-operator/repositories/setting-operator.module';
+import { BreakdownStatusModule } from './modules/breakdown-status/breakdown-status.module';
+import { WeighbridgeModule } from './modules/weighbridge/weighbridge.module';
 
 @Module({
   imports: [
@@ -30,6 +35,7 @@ import { AppController } from './app.controller';
       }),
     }),
     // Core Modules
+    WebSocketModule,
     DatabaseModule,
     AuthModule,
     CompaniesModule,
@@ -44,6 +50,10 @@ import { AppController } from './app.controller';
     GeofencesModule,
     FuelsModule,
     EquipmentStatusModule,
+    FuelCalibrationsModule,
+    SettingOperatorModule,
+    BreakdownStatusModule,
+    WeighbridgeModule,
     // Nanti module seperti Companies, Users, dll akan masuk ke sini
   ],
   controllers: [AppController], // Registrasikan AppController di sini

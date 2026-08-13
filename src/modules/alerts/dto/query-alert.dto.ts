@@ -1,6 +1,13 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import {
+  IsBoolean,
+  IsDateString,
+  IsInt,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export class QueryAlertDto {
   @ApiPropertyOptional({ description: 'Halaman ke-n', default: 1 })
@@ -18,21 +25,61 @@ export class QueryAlertDto {
   limit?: number = 10;
 
   @ApiPropertyOptional({
-    description: 'Cari berdasarkan equipment_code atau segment',
+    description: 'Cari berdasarkan equipment_code',
   })
   @IsOptional()
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  equipment_id?: string;
-
   @ApiPropertyOptional({
-    description: 'Filter by status (open, resolved, etc)',
+    description: 'Filter by Alert ID',
+    example: '10',
   })
   @IsOptional()
   @IsString()
-  status?: string;
+  id?: string;
+
+  @ApiPropertyOptional({
+    description: 'Tanggal mulai',
+    example: '2026-07-01',
+  })
+  @IsOptional()
+  @IsDateString()
+  created_at?: string;
+
+  @ApiPropertyOptional({
+    description: 'Tanggal akhir',
+    example: '2026-07-31',
+  })
+  @IsOptional()
+  @IsDateString()
+  created_at_end?: string;
+
+  @ApiPropertyOptional({
+    description: 'Alert Category ID (UUID)',
+  })
+  @IsOptional()
+  @IsString()
+  alert_category_id?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+  })
+  @IsOptional()
+  @Transform(({ value }) => (Array.isArray(value) ? value : value?.split(',')))
+  alert_category?: string[];
+
+  @ApiPropertyOptional({
+    description: 'Filter by is_read status (true/false)',
+    type: Boolean,
+    example: false,
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
+  @IsBoolean()
+  is_read?: boolean;
 }

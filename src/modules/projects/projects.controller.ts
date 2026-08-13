@@ -80,20 +80,25 @@ export class ProjectsController {
   }
 
   @Patch(':id')
-  @UseInterceptors(FileInterceptor('geojson_origin')) // Tambahkan ini
+  @UseInterceptors(FileInterceptor('geojson_origin'))
   @ApiOperation({
     summary: 'Memperbarui data proyek (Mendukung update file GeoJSON)',
   })
   @ApiConsumes('multipart/form-data', 'application/json')
   update(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() updateProjectDto: UpdateProjectDto,
-    @UploadedFile() file?: Express.Multer.File, // Tambahkan ini
+    @Param('id', ParseUUIDPipe)
+    id: string,
+
+    @Body()
+    updateProjectDto: UpdateProjectDto,
+
+    @UploadedFile()
+    file?: Express.Multer.File,
   ) {
-    // Jika ada file baru diunggah saat update
     if (file) {
       try {
         const fileContent = file.buffer.toString('utf-8');
+
         updateProjectDto.geojson_origin = JSON.parse(fileContent);
       } catch {
         throw new BadRequestException(

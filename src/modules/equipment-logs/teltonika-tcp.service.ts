@@ -31,24 +31,57 @@ export class TeltonikaTcpService implements OnModuleInit, OnModuleDestroy {
       let buffer = Buffer.alloc(0);
 
       const clientAddress = `${socket.remoteAddress}:${socket.remotePort}`;
-      console.log(`[TCP] 🚪 New Socket Connection from: ${clientAddress}`);
+      console.log(`\n[TCP] 🚪 New Socket Connection from: ${clientAddress}`);
 
       socket.on('data', (data) => {
+        // [X-RAY LOG]: Melihat wujud asli data yang dikirim Teltonika
+        // console.log(`[TCP] 📥 Raw Data Hex: ${data.toString('hex')}`);
+
         buffer = Buffer.concat([buffer, data]);
 
         void (async () => {
           try {
             // STEP 1 — IMEI HANDSHAKE
             if (!imei) {
-              if (buffer.length < 2) return;
+              if (buffer.length < 2) {
+                console.log(
+                  `[TCP] ⏳ Buffer kurang dari 2 bytes (${buffer.length} bytes), menunggu...`,
+                );
+                return;
+              }
+
               const length = buffer.readUInt16BE(0);
-              if (buffer.length < 2 + length) return;
+              // [X-RAY LOG]: Cek kalkulasi panjang payload
+              console.log(
+                `[TCP] 📏 Panjang Payload IMEI (dari 2 byte awal): ${length}`,
+              );
+
+              if (buffer.length < 2 + length) {
+                console.log(
+                  `[TCP] ⏳ Menunggu sisa payload IMEI (Butuh ${2 + length}, baru ada ${buffer.length})...`,
+                );
+                return;
+              }
 
               const imeiBuffer = buffer.slice(0, 2 + length);
+              // [X-RAY LOG]: Cek buffer yang dipotong untuk IMEI
+              console.log(
+                `[TCP] 🔍 Memproses IMEI Buffer: ${imeiBuffer.toString('hex')}`,
+              );
+
               imei = this.parserService.parseImei(imeiBuffer);
               buffer = buffer.slice(2 + length);
 
+              // [X-RAY LOG]: Pastikan IMEI berhasil ter-parse jadi teks
+              console.log(`[TCP] 📌 Hasil Parse IMEI: ${imei}`);
+              console.log(`[TCP] ⏳ Mencari IMEI ${imei} di Database...`);
+
               const device = await this.devicesRepository.findByCode(imei);
+
+              // [X-RAY LOG]: Pastikan pencarian DB tidak hang
+              console.log(
+                `[TCP] ✅ Pencarian DB selesai. Ditemukan: ${!!device}`,
+              );
 
               if (device) {
                 console.log(`[TCP] ✅ Connection Accepted: IMEI ${imei}`);
@@ -114,6 +147,22 @@ export class TeltonikaTcpService implements OnModuleInit, OnModuleDestroy {
                       Speed: ${record.speed} km/h`,
                   );
                   console.log(
+                    `[Accelerometer] 
+                      X: ${record.accelerometer_x},
+                      Y: ${record.accelerometer_y},
+                      Z: ${record.accelerometer_z}`,
+                  );
+                  console.log(
+                    `[Vehicle] 
+                      Ignition: ${record.ignition},
+                      Odometer: ${record.odometer},
+                    `,
+                  );
+                  console.log(
+                    `[Power] 
+                      Speed: ${record.speed} km/h`,
+                  );
+                  console.log(
                     `[Vehicle] 
                       Ignition: ${record.ignition},
                       Odometer: ${record.odometer},
@@ -170,10 +219,29 @@ export class TeltonikaTcpService implements OnModuleInit, OnModuleDestroy {
                     device_id: device.id,
                     latitude: record.latitude,
                     longitude: record.longitude,
+                    altitude: record.altitude,
+                    heading: record.heading,
+                    satellites: record.satellites,
                     speed: record.speed,
-                    fuel_level: record.fuel_raw,
+                    accelerometer_x: record.accelerometer_x,
+                    accelerometer_y: record.accelerometer_y,
+                    accelerometer_z: record.accelerometer_z,
+                    odometer: record.odometer,
+                    external_voltage: record.external_voltage,
+                    internal_battery_voltage: record.internal_battery_voltage,
+                    battery_current: record.battery_current,
+                    gsm_signal: record.gsm_signal,
+                    gsm_operator: record.gsm_operator,
+                    pdop: record.pdop,
+                    hdop: record.hdop,
+                    gnss_status: record.gnss_status,
+                    fuel_level: record.lls_fuel_level_1,
+                    fuel_temperature: record.lls_temperature_1,
+                    sleep_mode: record.sleep_mode,
+                    movement_runtime: record.movement_runtime,
+                    analog_input_1: record.analog_input_1,
                     engine_status: record.ignition,
-                    vessel_status: record.speed > 0 ? 'moving' : 'idle',
+                    vessel_status: record.speed > 0 ? 'MOVING' : 'IDLE',
                   });
 
                   // Update Status Terakhir (Real-time)
@@ -185,7 +253,7 @@ export class TeltonikaTcpService implements OnModuleInit, OnModuleDestroy {
                     speed: record.speed,
                     fuel_level: record.fuel_raw,
                     engine_status: record.ignition,
-                    status: record.speed > 0 ? 'moving' : 'idle',
+                    status: record.speed > 0 ? 'MOVING' : 'IDLE',
                   });
                 }
 
@@ -200,7 +268,9 @@ export class TeltonikaTcpService implements OnModuleInit, OnModuleDestroy {
               }
             }
           } catch (error: any) {
-            console.error(`[TCP] ❌ Error: ${error.message}`);
+            console.error(
+              `[TCP] ❌ Error Catch Block: ${error.stack || error.message}`,
+            );
           }
         })();
       });

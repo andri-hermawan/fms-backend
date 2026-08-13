@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { Prisma, users } from '@prisma/client';
+import { projects } from '../../../../generated/prisma/client';
 
 @Injectable()
 export class UsersRepository {
@@ -40,5 +41,17 @@ export class UsersRepository {
 
   async delete(id: string): Promise<users> {
     return await this.prisma.users.delete({ where: { id } });
+  }
+
+  // Sesuai standar, urusan query 'include' diisolasi di dalam repository
+  async findByEmailWithProject(
+    email: string,
+  ): Promise<(users & { projects: projects | null }) | null> {
+    return await this.prisma.users.findUnique({
+      where: { email },
+      include: {
+        projects: true,
+      },
+    });
   }
 }

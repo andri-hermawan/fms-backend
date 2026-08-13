@@ -24,10 +24,16 @@ import { UpdateGeofenceDto } from './dto/update-geofence.dto';
 export class GeofencesController {
   constructor(private readonly service: GeofencesService) {}
 
+  // @Post()
+  // @ApiOperation({ summary: 'Trigger geofence baru' })
+  // create(@Body() dto: CreateGeofenceDto, @GetUser('userId') userId: string) {
+  //   return this.service.create(dto, userId);
+  // }
+
   @Post()
   @ApiOperation({ summary: 'Trigger geofence baru' })
-  create(@Body() dto: CreateGeofenceDto, @GetUser('userId') userId: string) {
-    return this.service.create(dto, userId);
+  create(@Body() dto: CreateGeofenceDto) {
+    return this.service.create(dto);
   }
 
   @Get()
@@ -38,8 +44,26 @@ export class GeofencesController {
     return this.service.findAll(query);
   }
 
+  @Get('passing')
+  @ApiOperation({
+    summary: 'Equipment Passing',
+  })
+  passing(@Query() query: QueryGeofenceDto) {
+    return this.service.getPassing(query);
+  }
+
+  @Get('passing_summary')
+  @ApiOperation({
+    summary: 'Hourly Passing Summary',
+  })
+  passingSummary(@Query() query: QueryGeofenceDto) {
+    return this.service.getPassingSummary(query);
+  }
+
   @Get(':id')
-  @ApiOperation({ summary: 'Mendapatkan detail geofence berdasarkan ID' })
+  @ApiOperation({
+    summary: 'Mendapatkan detail geofence berdasarkan ID',
+  })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
   }

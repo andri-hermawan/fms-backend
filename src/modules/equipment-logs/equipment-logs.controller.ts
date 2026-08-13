@@ -10,6 +10,7 @@ import {
 import { EquipmentLogsService } from './equipment-logs.service';
 import { CreateEquipmentLogDto } from './dto/create-equipment-log.dto';
 import { QueryEquipmentLogDto } from './dto/query-equipment-log.dto';
+import { ActivitySummaryQueryDto } from './dto/activity-summary.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
@@ -30,6 +31,12 @@ export class EquipmentLogsController {
   @ApiOperation({ summary: 'Get logs with filter and pagination' })
   findAll(@Query() query: QueryEquipmentLogDto) {
     return this.service.findAll(query);
+  }
+
+  @Get('activity_summary')
+  @ApiOperation({ summary: 'Get activity summary for tracking page' })
+  getActivitySummary(@Query() query: ActivitySummaryQueryDto) {
+    return this.service.getActivitySummary(query);
   }
 
   @Get(':id')
