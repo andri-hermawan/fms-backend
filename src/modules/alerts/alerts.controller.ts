@@ -56,7 +56,9 @@ export class AlertsController {
   }
 
   @Put(':id/read')
-  @ApiOperation({ summary: 'Tandai alert sebagai telah dibaca (is_read = true)' })
+  @ApiOperation({
+    summary: 'Tandai alert sebagai telah dibaca (is_read = true)',
+  })
   markAsRead(@Param('id') id: string) {
     return this.service.markAsRead(id);
   }

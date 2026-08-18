@@ -11,6 +11,7 @@ import { EquipmentLogsService } from './equipment-logs.service';
 import { CreateEquipmentLogDto } from './dto/create-equipment-log.dto';
 import { QueryEquipmentLogDto } from './dto/query-equipment-log.dto';
 import { ActivitySummaryQueryDto } from './dto/activity-summary.dto';
+import { QueryByDateShiftDto } from './dto/query-by-date-shift.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
@@ -37,6 +38,15 @@ export class EquipmentLogsController {
   @ApiOperation({ summary: 'Get activity summary for tracking page' })
   getActivitySummary(@Query() query: ActivitySummaryQueryDto) {
     return this.service.getActivitySummary(query);
+  }
+
+  @Get('by-date-shift')
+  @ApiOperation({
+    summary:
+      'Get logs by created_at, equipment_code, and shift (includes alerts)',
+  })
+  findByDateShift(@Query() query: QueryByDateShiftDto) {
+    return this.service.findByDateShift(query);
   }
 
   @Get(':id')

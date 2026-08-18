@@ -3,6 +3,7 @@ import { EquipmentLogsRepository } from './repositories/equipment-logs.repositor
 import { CreateEquipmentLogDto } from './dto/create-equipment-log.dto';
 import { QueryEquipmentLogDto } from './dto/query-equipment-log.dto';
 import { ActivitySummaryQueryDto } from './dto/activity-summary.dto';
+import { QueryByDateShiftDto } from './dto/query-by-date-shift.dto';
 import { EquipmentsRepository } from '../equipments/repositories/equipments.repository';
 import * as turf from '@turf/turf';
 import { Feature, FeatureCollection, Polygon, MultiPolygon } from 'geojson';
@@ -1167,5 +1168,14 @@ export class EquipmentLogsService {
           Number(summary.fuel_remaining_percentage) || 0,
       },
     };
+  }
+
+  async findByDateShift(query: QueryByDateShiftDto) {
+    const data = await this.repository.findByDateShift(query);
+    return JSON.parse(
+      JSON.stringify(data, (key, value) =>
+        typeof value === 'bigint' ? value.toString() : value,
+      ),
+    );
   }
 }

@@ -33,6 +33,8 @@ export class AlertsService {
       alert_category_id,
       is_read,
     } = query;
+    // console.log('DEBUG findAll query:', JSON.stringify(query));
+    // console.log('DEBUG is_read value:', is_read, typeof is_read);
     const skip = (Number(page) - 1) * Number(limit);
 
     const where: Prisma.alertsWhereInput = {};
@@ -59,17 +61,23 @@ export class AlertsService {
     if (alert_category_id) {
       where.alert_category_id = alert_category_id;
     }
-    if (is_read !== undefined) where.is_read = is_read;
+    if (is_read !== undefined) {
+      if (is_read === false) {
+        where.OR = [...(where.OR ?? []), { is_read: false }, { is_read: null }];
+      } else {
+        where.is_read = true;
+      }
+    }
     if (id) where.id = BigInt(id);
     if (created_at || created_at_end) {
       where.created_at = {};
 
       if (created_at) {
-        where.created_at.gte = new Date(`${created_at}T00:00:00.000+07:00`);
+        where.created_at.gte = new Date(`${created_at}T00:00:00.000Z`);
       }
 
       if (created_at_end) {
-        where.created_at.lte = new Date(`${created_at_end}T23:59:59.999+07:00`);
+        where.created_at.lte = new Date(`${created_at_end}T23:59:59.999Z`);
       }
     }
 
