@@ -17,6 +17,7 @@ import { FuelCalibrationsService } from '../fuel-calibrations/fuel-calibrations.
 import { serializeBigInt } from '../../common/helpers/bigint.helper';
 import { WebSocketGatewayService } from '../../common/websocket/websocket.gateway';
 import { ShiftsService } from '../shifts/shifts.service';
+import { QueryByEquipmentDateShiftDto } from './dto/query-by-equipment-date-shift.dto';
 @Injectable()
 export class EquipmentLogsService {
   private readonly logger = new Logger(EquipmentLogsService.name);
@@ -878,7 +879,7 @@ export class EquipmentLogsService {
       const FUEL_ALERT_ID = '5c6e755c-28fb-4058-8180-0e887f98cd5a';
 
       // STEP 4: Check for FUEL DECREASE or INCREASE
-      if (fuelDifference <= -1.5) {
+      if (fuelDifference <= -3.0) {
         // Fuel is decreasing, find when it started
         const decreaseStart = await this.repository.findFuelDecreaseStart(
           equipmentId,
@@ -901,7 +902,7 @@ export class EquipmentLogsService {
         if (deltaTimeMinutes <= 5) {
           eventType = 'FUEL DECREASE';
         }
-      } else if (fuelDifference >= 1.5) {
+      } else if (fuelDifference >= 3.0) {
         // Fuel is increasing (refueling)
         const deltaTimeMinutes =
           (currentTime.getTime() - new Date(String(lastLog.time)).getTime()) /
@@ -1170,8 +1171,26 @@ export class EquipmentLogsService {
     };
   }
 
+  async findByEquipmentDateShift(query: QueryByEquipmentDateShiftDto) {
+    const data = await this.repository.findByEquipmentDateShift(query);
+    return JSON.parse(
+      JSON.stringify(data, (key, value) =>
+        typeof value === 'bigint' ? value.toString() : value,
+      ),
+    );
+  }
+
   async findByDateShift(query: QueryByDateShiftDto) {
     const data = await this.repository.findByDateShift(query);
+    return JSON.parse(
+      JSON.stringify(data, (key, value) =>
+        typeof value === 'bigint' ? value.toString() : value,
+      ),
+    );
+  }
+
+  async getSegmentSpeedSummary(query: QueryByDateShiftDto) {
+    const data = await this.repository.getSegmentSpeedSummary(query);
     return JSON.parse(
       JSON.stringify(data, (key, value) =>
         typeof value === 'bigint' ? value.toString() : value,

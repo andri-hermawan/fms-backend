@@ -14,6 +14,7 @@ import { ActivitySummaryQueryDto } from './dto/activity-summary.dto';
 import { QueryByDateShiftDto } from './dto/query-by-date-shift.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { QueryByEquipmentDateShiftDto } from './dto/query-by-equipment-date-shift.dto';
 
 @ApiTags('Equipment Logs')
 @ApiBearerAuth()
@@ -40,13 +41,30 @@ export class EquipmentLogsController {
     return this.service.getActivitySummary(query);
   }
 
-  @Get('by-date-shift')
+  @Get('by-equipment-date-shift')
   @ApiOperation({
     summary:
       'Get logs by created_at, equipment_code, and shift (includes alerts)',
   })
+  findByEquipmentDateShift(@Query() query: QueryByEquipmentDateShiftDto) {
+    return this.service.findByEquipmentDateShift(query);
+  }
+
+  @Get('by-date-shift')
+  @ApiOperation({
+    summary: 'Get logs by created_at and shift (includes alerts)',
+  })
   findByDateShift(@Query() query: QueryByDateShiftDto) {
     return this.service.findByDateShift(query);
+  }
+
+  @Get('segment-speed-summary')
+  @ApiOperation({
+    summary:
+      'Get segment-wise average speed grouped by vessel_status (EMPTY vs LOADED), filterable by date and shift',
+  })
+  getSegmentSpeedSummary(@Query() query: QueryByDateShiftDto) {
+    return this.service.getSegmentSpeedSummary(query);
   }
 
   @Get(':id')

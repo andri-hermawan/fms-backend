@@ -354,7 +354,7 @@ export class EquipmentLogsRepository {
     );
   }
 
-  async findByDateShift(params: {
+  async findByEquipmentDateShift(params: {
     created_at?: string;
     equipment_code?: string;
     shift?: string;
@@ -437,6 +437,115 @@ export class EquipmentLogsRepository {
       ${whereClause}
       GROUP BY el.id, eq.equipment_code, dv.device_code
       ORDER BY el.created_at ASC
+    `;
+
+    return this.prisma.$queryRawUnsafe(query, ...values);
+  }
+
+  async findByDateShift(params: { created_at?: string; shift?: string }) {
+    const conditions: string[] = [];
+    const values: any[] = [];
+
+    if (params.created_at) {
+      const start = new Date(`${params.created_at}T00:00:00.000+07:00`);
+      const end = new Date(`${params.created_at}T23:59:59.999+07:00`);
+      conditions.push(
+        `el.created_at >= $${values.length + 1}::timestamptz AND el.created_at <= $${values.length + 2}::timestamptz`,
+      );
+      values.push(start, end);
+    }
+    if (params.shift) {
+      conditions.push(`el.shift = $${values.length + 1}`);
+      values.push(params.shift);
+    }
+
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const query = `
+      SELECT
+        el.id,
+        el.time,
+        el.equipment_id,
+        el.device_id,
+        ST_X(el.location) AS longitude,
+        ST_Y(el.location) AS latitude,
+        el.altitude,
+        el.heading,
+        el.satellites,
+        el.speed,
+        el.category_location,
+        el.segment,
+        el.is_inside,
+        el.orig_fid,
+        el.accelerometer_x,
+        el.accelerometer_y,
+        el.accelerometer_z,
+        el.odometer,
+        el.engine_status,
+        el.external_voltage,
+        el.internal_battery_voltage,
+        el.battery_current,
+        el.gsm_signal,
+        el.gsm_operator,
+        el.pdop,
+        el.hdop,
+        el.gnss_status,
+        el.fuel_level,
+        el.fuel_volume,
+        el.fuel_percentage,
+        el.fuel_difference,
+        el.fuel_temperature,
+        el.sleep_mode,
+        el.movement_runtime,
+        el.analog_input_1,
+        el.mileage,
+        el.vessel,
+        el.vessel_status,
+        el.status,
+        el.shift,
+        el.created_at,
+        eq.equipment_code
+      FROM equipment_logs el
+      LEFT JOIN equipments eq ON el.equipment_id = eq.id
+      ${whereClause}
+    `;
+
+    return this.prisma.$queryRawUnsafe(query, ...values);
+  }
+
+  async getSegmentSpeedSummary(params: {
+    created_at?: string;
+    shift?: string;
+  }) {
+    const conditions: string[] = [];
+    const values: any[] = [];
+
+    if (params.created_at) {
+      const start = new Date(`${params.created_at}T00:00:00.000+07:00`);
+      const end = new Date(`${params.created_at}T23:59:59.999+07:00`);
+      conditions.push(
+        `el.created_at >= $${values.length + 1}::timestamptz AND el.created_at <= $${values.length + 2}::timestamptz`,
+      );
+      values.push(start, end);
+    }
+    if (params.shift) {
+      conditions.push(`el.shift = $${values.length + 1}`);
+      values.push(params.shift);
+    }
+
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const query = `
+      SELECT
+        el.segment,
+        COALESCE(TO_CHAR(ROUND(AVG(el.speed) FILTER (WHERE el.vessel_status = 'EMPTY')::numeric, 2), 'FM999999990.00'), '0.00') AS avg_speed_empty,
+        COALESCE(TO_CHAR(ROUND(AVG(el.speed) FILTER (WHERE el.vessel_status = 'LOADED')::numeric, 2), 'FM999999990.00'), '0.00') AS avg_speed_loaded
+      FROM equipment_logs el
+      ${whereClause}
+      GROUP BY el.segment
+      ORDER BY el.segment
     `;
 
     return this.prisma.$queryRawUnsafe(query, ...values);

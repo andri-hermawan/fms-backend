@@ -5,7 +5,7 @@ import {
   IsInt,
   IsNumber,
   IsOptional,
-  IsString,
+  // IsString,
   IsUUID,
 } from 'class-validator';
 
@@ -34,6 +34,31 @@ export class CreateEquipmentLogDto {
   @IsNumber()
   longitude!: number;
 
+  @ApiPropertyOptional({ example: 0 })
+  @IsOptional()
+  @IsNumber()
+  fuel_level?: number;
+
+  @ApiPropertyOptional({ example: 45 })
+  @IsOptional()
+  @IsInt()
+  speed?: number;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  engine_status?: boolean;
+
+  @ApiPropertyOptional({ example: 0 })
+  @IsOptional()
+  @IsInt()
+  gsm_signal?: number;
+
+  @ApiPropertyOptional({ example: 0 })
+  @IsOptional()
+  @IsInt()
+  gsm_operator?: number;
+
   @ApiProperty({ example: 0 })
   @IsInt()
   altitude?: number;
@@ -45,33 +70,6 @@ export class CreateEquipmentLogDto {
   @ApiProperty({ example: 0 })
   @IsInt()
   satellites?: number;
-
-  @ApiPropertyOptional({ example: 45 })
-  @IsOptional()
-  @IsInt()
-  speed?: number;
-
-  @ApiPropertyOptional({ example: 'Trase Utama' })
-  @IsString()
-  @IsOptional()
-  category_location?: string;
-
-  @ApiPropertyOptional({ example: 'Km 24+000 - 25+000' })
-  @IsString()
-  @IsOptional()
-  segment?: string;
-
-  @ApiPropertyOptional({ example: true })
-  @IsBoolean()
-  @IsOptional()
-  is_inside?: boolean;
-
-  @ApiPropertyOptional({ example: 25 })
-  @IsNumber()
-  @IsOptional()
-  orig_fid?: number;
-
-  // ================= Accelerometer =================
 
   @ApiPropertyOptional({ example: 0 })
   @IsOptional()
@@ -88,19 +86,10 @@ export class CreateEquipmentLogDto {
   @IsNumber()
   accelerometer_z?: number;
 
-  // ================= Vehicle =================
-
   @ApiPropertyOptional({ example: 0 })
   @IsOptional()
   @IsNumber()
   odometer?: number;
-
-  @ApiPropertyOptional({ example: false })
-  @IsOptional()
-  @IsBoolean()
-  engine_status?: boolean;
-
-  // ================= Power =================
 
   @ApiPropertyOptional({ example: 0 })
   @IsOptional()
@@ -117,20 +106,6 @@ export class CreateEquipmentLogDto {
   @IsNumber()
   battery_current?: number;
 
-  // ================= GSM =================
-
-  @ApiPropertyOptional({ example: 0 })
-  @IsOptional()
-  @IsInt()
-  gsm_signal?: number;
-
-  @ApiPropertyOptional({ example: 0 })
-  @IsOptional()
-  @IsInt()
-  gsm_operator?: number;
-
-  // ================= GNSS =================
-
   @ApiPropertyOptional({ example: 0 })
   @IsOptional()
   @IsNumber()
@@ -146,34 +121,10 @@ export class CreateEquipmentLogDto {
   @IsInt()
   gnss_status?: number;
 
-  // ================= Fuel =================
-
-  @ApiPropertyOptional({ example: 0 })
-  @IsOptional()
-  @IsNumber()
-  fuel_level?: number;
-
   @ApiPropertyOptional({ example: 0 })
   @IsOptional()
   @IsNumber()
   fuel_temperature?: number;
-
-  @ApiPropertyOptional({ example: 0 })
-  @IsOptional()
-  @IsNumber()
-  fuel_volume?: number;
-
-  @ApiPropertyOptional({ example: 0 })
-  @IsOptional()
-  @IsNumber()
-  fuel_percentage?: number;
-
-  @ApiPropertyOptional({ example: 0 })
-  @IsOptional()
-  @IsNumber()
-  fuel_difference?: number;
-
-  // ================= Device =================
 
   @ApiPropertyOptional({ example: 0 })
   @IsOptional()
@@ -190,8 +141,6 @@ export class CreateEquipmentLogDto {
   @IsNumber()
   analog_input_1?: number;
 
-  // ================= Business =================
-
   @ApiPropertyOptional({ example: 0 })
   @IsOptional()
   @IsNumber()
@@ -202,13 +151,48 @@ export class CreateEquipmentLogDto {
   @IsNumber()
   vessel?: number;
 
-  @ApiPropertyOptional({ example: 'EMPTY' })
-  @IsOptional()
-  @IsString()
-  vessel_status?: string;
+  // @ApiPropertyOptional({ example: 'Trase Utama' })
+  // @IsString()
+  // @IsOptional()
+  // category_location?: string;
 
-  @ApiPropertyOptional({ example: 'OFFLINE' })
-  @IsOptional()
-  @IsString()
-  status?: string;
+  // @ApiPropertyOptional({ example: 'Km 24+000 - 25+000' })
+  // @IsString()
+  // @IsOptional()
+  // segment?: string;
+
+  // @ApiPropertyOptional({ example: true })
+  // @IsBoolean()
+  // @IsOptional()
+  // is_inside?: boolean;
+
+  // @ApiPropertyOptional({ example: 25 })
+  // @IsNumber()
+  // @IsOptional()
+  // orig_fid?: number;
+
+  // @ApiPropertyOptional({ example: 0 })
+  // @IsOptional()
+  // @IsNumber()
+  // fuel_volume?: number;
+
+  // @ApiPropertyOptional({ example: 0 })
+  // @IsOptional()
+  // @IsNumber()
+  // fuel_percentage?: number;
+
+  // @ApiPropertyOptional({ example: 0 })
+  // @IsOptional()
+  // @IsNumber()
+  // fuel_difference?: number;
+
+  // @ApiPropertyOptional({ example: 'EMPTY' })
+  // @IsOptional()
+  // @IsString()
+  // vessel_status?: string;
+
+  // @ApiPropertyOptional({ example: 'OFFLINE' })
+  // @IsOptional()
+  // @IsString()
+  // status?: string;
 }
