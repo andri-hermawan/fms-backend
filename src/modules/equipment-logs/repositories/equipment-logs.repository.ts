@@ -52,7 +52,7 @@ export class EquipmentLogsRepository {
         shift,
         created_at
       ) VALUES (
-        ${rest.time}::timestamp,
+        ${rest.time}::timestamptz,
         ${rest.equipment_id}::uuid,
         ${rest.device_id}::uuid,
         ST_GeomFromText(${`POINT(${longitude} ${latitude})`}, 4326),
@@ -90,7 +90,7 @@ export class EquipmentLogsRepository {
         ${rest.vessel_status},
         ${rest.status},
         ${rest.shift || null},
-        NOW()
+        COALESCE(${rest.created_at}::timestamptz, NOW())
       )
       RETURNING
       id,
@@ -211,6 +211,28 @@ export class EquipmentLogsRepository {
     return result[0] ?? null;
   }
 
+  async findOverSpeedStart(equipment_id: string) {
+    const result = await this.prisma.$queryRaw<{ created_at: Date }[]>`
+      SELECT created_at
+      FROM equipment_logs
+      WHERE equipment_id = ${equipment_id}::uuid
+        AND COALESCE(speed, 0) > 50
+        AND id > COALESCE(
+          (
+            SELECT MAX(id)
+            FROM equipment_logs
+            WHERE equipment_id = ${equipment_id}::uuid
+              AND COALESCE(speed, 0) <= 50
+          ),
+          0
+        )
+      ORDER BY id ASC
+      LIMIT 1;
+    `;
+
+    return result[0] ?? null;
+  }
+
   async findUnderSpeedStart(equipment_id: string) {
     const result = await this.prisma.$queryRaw<{ created_at: Date }[]>`
       SELECT created_at
@@ -237,9 +259,8 @@ export class EquipmentLogsRepository {
     return result[0] ?? null;
   }
 
-  async findFuelDecreaseStart(
+  async findStopStreakStart(
     equipment_id: string,
-    current_fuel_level: number,
   ) {
     const result = await this.prisma.$queryRaw<
       { created_at: Date; fuel_level: number }[]
@@ -248,13 +269,23 @@ export class EquipmentLogsRepository {
       FROM equipment_logs
       WHERE equipment_id = ${equipment_id}::uuid
         AND fuel_level IS NOT NULL
-        AND fuel_level < ${current_fuel_level}
+        AND speed = 0
         AND id > COALESCE(
           (
             SELECT MAX(id)
             FROM equipment_logs
             WHERE equipment_id = ${equipment_id}::uuid
-              AND fuel_level >= ${current_fuel_level}
+              AND speed > 0
+          ),
+          0
+        )
+        AND id > COALESCE(
+          (
+            SELECT MAX(a.log_id)
+            FROM alerts a
+            WHERE a.equipment_id = ${equipment_id}::uuid
+              AND a.alert_category_id = '5c6e755c-28fb-4058-8180-0e887f98cd5a'::uuid
+              AND a.resolved_at IS NOT NULL
           ),
           0
         )

@@ -20,6 +20,7 @@ import {
   ApiResponse,
   ApiConsumes,
   ApiBearerAuth,
+  ApiBody,
 } from '@nestjs/swagger';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -35,11 +36,30 @@ export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
 
   @Post()
-  @UseInterceptors(FileInterceptor('geojson_origin')) // Menangkap file dari field 'geojson_origin'
+  @UseInterceptors(FileInterceptor('geojson_origin'))
   @ApiOperation({
     summary: 'Mendaftarkan proyek baru (Mendukung upload file GeoJSON)',
   })
-  @ApiConsumes('multipart/form-data', 'application/json') // Memberitahu Swagger bahwa endpoint ini menerima form-data
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Data proyek dan file GeoJSON',
+    schema: {
+      type: 'object',
+      properties: {
+        geojson_origin: {
+          type: 'string',
+          format: 'binary',
+          description: 'File GeoJSON (.json/.geojson)',
+        },
+        project_code: { type: 'string', example: 'PRJ-001' },
+        project_name: { type: 'string', example: 'Proyek Tambang' },
+        company_id: { type: 'string', format: 'uuid', example: 'uuid-company' },
+        image: { type: 'string', description: 'URL gambar' },
+        status: { type: 'string', example: 'active' },
+      },
+      required: ['project_code', 'company_id'],
+    },
+  })
   @ApiResponse({ status: 201, description: 'Proyek berhasil dibuat.' })
   @ApiResponse({ status: 400, description: 'Format file GeoJSON tidak valid.' })
   @ApiResponse({ status: 404, description: 'Company ID tidak ditemukan.' })
@@ -84,7 +104,25 @@ export class ProjectsController {
   @ApiOperation({
     summary: 'Memperbarui data proyek (Mendukung update file GeoJSON)',
   })
-  @ApiConsumes('multipart/form-data', 'application/json')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Data proyek dan file GeoJSON',
+    schema: {
+      type: 'object',
+      properties: {
+        geojson_origin: {
+          type: 'string',
+          format: 'binary',
+          description: 'File GeoJSON (.json/.geojson)',
+        },
+        project_code: { type: 'string', example: 'PRJ-001' },
+        project_name: { type: 'string', example: 'Proyek Tambang' },
+        company_id: { type: 'string', format: 'uuid', example: 'uuid-company' },
+        image: { type: 'string', description: 'URL gambar' },
+        status: { type: 'string', example: 'active' },
+      },
+    },
+  })
   update(
     @Param('id', ParseUUIDPipe)
     id: string,

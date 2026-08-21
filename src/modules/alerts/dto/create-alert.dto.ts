@@ -112,8 +112,16 @@ export class CreateAlertDto {
   @IsOptional()
   is_read?: boolean;
 
+  @ApiPropertyOptional({ example: '2026-08-20T07:27:30+07:00' })
+  @IsOptional()
+  created_at?: Date;
+
   @ApiPropertyOptional({ example: 'SHIFT 1' })
   @IsOptional()
   @IsString()
   shift?: string;
+
+  @ApiPropertyOptional({ example: '2026-08-20T07:27:30+07:00' })
+  @IsOptional()
+  resolved_at?: Date;
 }

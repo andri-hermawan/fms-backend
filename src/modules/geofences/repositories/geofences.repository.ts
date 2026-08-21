@@ -53,7 +53,7 @@ export class GeofencesRepository {
         ${rest.engine_status}, 
         ${rest.status || 'open'},
         ${rest.shift || null},
-        NOW()
+        COALESCE(${rest.created_at}::timestamptz, NOW())
       )
     `;
   }

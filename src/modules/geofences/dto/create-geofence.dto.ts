@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
+  IsDateString,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -109,4 +110,9 @@ export class CreateGeofenceDto {
   @IsOptional()
   @IsString()
   shift?: string | null;
+
+  @ApiProperty({ example: '2026-04-27T10:00:00Z' })
+  @IsOptional()
+  @IsDateString()
+  created_at?: string;
 }
