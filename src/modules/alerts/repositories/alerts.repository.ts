@@ -14,7 +14,7 @@ export class AlertsRepository {
         location, is_inside,orig_fid, location_category,
         segment, speed, fuel_level,
         vessel, mileage, vessel_status, engine_status, 
-        status, shift, is_read, created_at
+        status, shift, is_read, created_at, resolved_at
       ) VALUES (
         ${rest.equipment_id}::uuid, ${rest.alert_category_id}::uuid,${rest.log_id},
         ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326),
@@ -22,7 +22,8 @@ export class AlertsRepository {
         ${rest.segment}, ${rest.speed}, ${rest.fuel_level},
         ${rest.vessel}, ${rest.mileage}, ${rest.vessel_status}, ${rest.engine_status},
         ${rest.status}, ${rest.shift || null}, ${rest.is_read ?? false},
-        CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta'
+        COALESCE(${rest.created_at}::timestamptz, NOW()),
+        ${rest.resolved_at ?? null}::timestamptz
       )
     `;
   }
@@ -174,7 +175,7 @@ export class AlertsRepository {
     await this.prisma.$executeRaw`
       UPDATE alerts
       SET is_read = true,
-          updated_at = CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta'
+          updated_at = NOW()
       WHERE id = ${id}
     `;
     return await this.prisma.alerts.findUnique({
@@ -210,11 +211,16 @@ export class AlertsRepository {
     });
   }
 
-  async resolveActive(equipmentId: string, alertCategoryId: string) {
+  async resolveActive(
+    equipmentId: string,
+    alertCategoryId: string,
+    resolvedAt?: Date,
+  ) {
+    const resolvedTime = resolvedAt ?? new Date();
     return await this.prisma.$executeRaw`
       UPDATE alerts
-      SET resolved_at = CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta',
-          updated_at = CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta'
+      SET resolved_at = ${resolvedTime}::timestamptz,
+          updated_at = ${resolvedTime}::timestamptz
       WHERE equipment_id = ${equipmentId}::uuid
         AND alert_category_id = ${alertCategoryId}::uuid
         AND resolved_at IS NULL;

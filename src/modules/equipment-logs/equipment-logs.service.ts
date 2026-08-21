@@ -47,10 +47,13 @@ export class EquipmentLogsService {
       equipment_id,
       gsm_signal,
       gsm_operator,
+      created_at,
       ...rest
     } = dto;
     const currentTime = new Date(dto.time);
-    // this.logger.debug(`currentTime 1 =${currentTime?.toISOString()}`);
+    // this.logger.debug(`currentTime =${currentTime.toISOString()}`);
+    // this.logger.debug(`dto.time =${dto.time}`);
+    // this.logger.debug(`dto.created_at =${dto.created_at}`);
 
     // STEP 2: Load equipment and project geofence configuration.
     const equipment = await this.equipmentRepo.findById(equipment_id!);
@@ -210,6 +213,7 @@ export class EquipmentLogsService {
     let shiftName: string | null = null;
     try {
       const checkedAt = currentTime.toTimeString().slice(0, 5);
+      // this.logger.debug(`checkedAt =${checkedAt}`); 13:09
       const shiftResult = await this.shiftsService.findCurrentByProject(
         equipment.project_id!,
         checkedAt,
@@ -242,16 +246,17 @@ export class EquipmentLogsService {
       status: opStatus,
       gsm_signal: gsmSignal,
       gsm_operator: gsmOperator,
+      created_at: created_at ? new Date(created_at) : undefined,
     });
 
-    this.logger.debug(
-      `[SavedLog] equipment=${dto.equipment_id} id=${savedLog.id} ` +
-        `speed=${Number(savedLog.speed ?? 0)} fuel_level=${Number(savedLog.fuel_level ?? 0)} ` +
-        `fuel_volume=${fuelVolume ?? 'N/A'} fuel_percentage=${fuelPercentage ?? 'N/A'} ` +
-        `fuel_difference=${fuelDifference ?? 'N/A'} segment=${savedLog.segment ?? 'N/A'} ` +
-        `status=${savedLog.status ?? 'N/A'} vessel_status=${savedLog.vessel_status ?? 'N/A'} ` +
-        `created_at=${savedLog.created_at?.toISOString() ?? 'N/A'}`,
-    );
+    // this.logger.debug(
+    //   `[SavedLog] equipment=${dto.equipment_id} id=${savedLog.id} ` +
+    //     `speed=${Number(savedLog.speed ?? 0)} fuel_level=${Number(savedLog.fuel_level ?? 0)} ` +
+    //     `fuel_volume=${fuelVolume ?? 'N/A'} fuel_percentage=${fuelPercentage ?? 'N/A'} ` +
+    //     `fuel_difference=${fuelDifference ?? 'N/A'} segment=${savedLog.segment ?? 'N/A'} ` +
+    //     `status=${savedLog.status ?? 'N/A'} vessel_status=${savedLog.vessel_status ?? 'N/A'} ` +
+    //     `created_at=${savedLog.created_at?.toISOString() ?? 'N/A'}`,
+    // );
 
     // STEP 9: Push the latest status to the equipment snapshot.
     await this.updateSnapshot(
@@ -310,6 +315,7 @@ export class EquipmentLogsService {
     const savedLogTime = savedLog.created_at
       ? new Date(String(savedLog.created_at))
       : currentTime;
+    // this.logger.debug(`savedLogTime =${savedLogTime.toISOString()}`); sama dengan currentTime
     await this.checkAndTriggerOffTrack(
       dto.equipment_id!,
       savedLogTime,
@@ -343,6 +349,7 @@ export class EquipmentLogsService {
           vessel_status: savedLog.vessel_status,
           engine_status,
           shift: shiftName,
+          created_at: created_at || undefined,
         });
 
         this.wsGateway.emitGeofenceEvent({
@@ -352,7 +359,7 @@ export class EquipmentLogsService {
           segment: lastLog.segment,
           longitude,
           latitude,
-          created_at: currentTime,
+          created_at: created_at || undefined,
         });
 
         this.wsGateway.emitNewGeofence(newGeofence);
@@ -379,6 +386,7 @@ export class EquipmentLogsService {
           vessel_status: savedLog.vessel_status,
           engine_status,
           shift: shiftName,
+          created_at: created_at || undefined,
         });
 
         this.wsGateway.emitGeofenceEvent({
@@ -388,7 +396,7 @@ export class EquipmentLogsService {
           segment: savedLog.segment,
           longitude,
           latitude,
-          created_at: currentTime,
+          created_at: created_at || undefined,
         });
 
         this.wsGateway.emitNewGeofence(newGeofence);
@@ -415,6 +423,7 @@ export class EquipmentLogsService {
           vessel_status: savedLog.vessel_status,
           engine_status,
           shift: shiftName,
+          created_at: created_at || undefined,
         });
 
         this.wsGateway.emitGeofenceEvent({
@@ -424,7 +433,7 @@ export class EquipmentLogsService {
           segment: savedLog.segment,
           longitude,
           latitude,
-          created_at: currentTime,
+          created_at: created_at || undefined,
         });
 
         this.wsGateway.emitNewGeofence(newGeofence);
@@ -544,9 +553,9 @@ export class EquipmentLogsService {
         last_update_at: currentTime,
       });
 
-      this.logger.debug(
-        `Snapshot updated: ${equipmentCode || dto.equipment_id}`,
-      );
+      // this.logger.debug(
+      //   `Snapshot updated: ${equipmentCode || dto.equipment_id}`,
+      // );
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.error(`Failed to update snapshot: ${msg}`);
@@ -567,17 +576,19 @@ export class EquipmentLogsService {
         const resolvedCount = await this.alertRepo.resolveActive(
           equipmentId,
           'a9bd6aa2-94d5-4266-9135-0fff314a6714',
+          currentTime,
         );
         if (resolvedCount > 0) {
-          this.logger.log(
-            `Unit ${info.equipment_code} back on track. ${resolvedCount} alert resolved.`,
-          );
+          // this.logger.log(
+          //   `Unit ${info.equipment_code} back on track. ${resolvedCount} alert resolved.`,
+          // );
         }
         return;
       }
 
       if (speed !== 0) return;
 
+      // Cari waktu mulai equipment berhenti di luar track = created_at = 13:00:00
       const outsideStart =
         await this.repository.findStoppedOutsideStart(equipmentId);
       const startTimeOutside = outsideStart?.created_at
@@ -587,8 +598,10 @@ export class EquipmentLogsService {
         (currentTime.getTime() - startTimeOutside.getTime()) / (1000 * 60);
 
       // this.logger.debug(
-      //   `[OffTrack] equipment=${equipmentId} start=${startTimeOutside.toISOString()} ` +
-      //     `current=${currentTime.toISOString()} diff=${diffMinutes.toFixed(2)}m`,
+      //   `[OffTrack] equipment=${equipmentId} ` +
+      //     `outsideStart.created_at=${outsideStart?.created_at ?? 'NULL'} ` +
+      //     `startTimeOutside=${startTimeOutside.toISOString()} ` +
+      //     `diffMinutes=${diffMinutes.toFixed(2)}m`,
       // );
 
       // Push an off-track alert after three minutes outside while stopped.
@@ -632,9 +645,9 @@ export class EquipmentLogsService {
           // Emit alert summary update via WebSocket
           await this.emitAlertSummaryUpdate(currentTime);
 
-          this.logger.log(
-            `New off-track alert created for ${info.equipment_code}.`,
-          );
+          // this.logger.log(
+          //   `New off-track alert created for ${info.equipment_code}.`,
+          // );
         }
       }
     } catch (e: unknown) {
@@ -657,20 +670,30 @@ export class EquipmentLogsService {
 
       // Resolve overspeed after speed returns to 50 or below.
       if (speed <= 50) {
-        await this.alertRepo.resolveActive(equipmentId, OVER_SPEED_ID);
+        await this.alertRepo.resolveActive(equipmentId, OVER_SPEED_ID, currentTime);
       }
 
       // Resolve underspeed after speed reaches 10 or above.
       if (speed >= 10) {
-        await this.alertRepo.resolveActive(equipmentId, UNDER_SPEED_ID);
+        await this.alertRepo.resolveActive(equipmentId, UNDER_SPEED_ID, currentTime);
       }
 
       let categoryId: string | null = null;
       let alertName: string | null = null;
 
       if (speed > 50) {
-        categoryId = OVER_SPEED_ID;
-        alertName = 'Overspeed';
+        const overSpeedStart =
+          await this.repository.findOverSpeedStart(equipmentId);
+        const startTimeOverSpeed = overSpeedStart?.created_at
+          ? new Date(String(overSpeedStart.created_at))
+          : currentTime;
+        const diffMinutes =
+          (currentTime.getTime() - startTimeOverSpeed.getTime()) / (1000 * 60);
+
+        if (diffMinutes >= 1) {
+          categoryId = OVER_SPEED_ID;
+          alertName = 'Overspeed';
+        }
       } else if (speed > 0 && speed < 10) {
         // Same pattern as off-track: get the first log in the active streak.
         const underSpeedStart =
@@ -734,9 +757,9 @@ export class EquipmentLogsService {
         // Emit alert summary update via WebSocket
         await this.emitAlertSummaryUpdate(currentTime);
 
-        this.logger.log(
-          `New ${alertName.toLowerCase()} alert created for ${info.equipment_code}.`,
-        );
+        // this.logger.log(
+        //   `New ${alertName.toLowerCase()} alert created for ${info.equipment_code}.`,
+        // );
       }
     } catch (e: unknown) {
       this.logger.error(
@@ -752,9 +775,9 @@ export class EquipmentLogsService {
     logId: bigint,
   ) {
     try {
-      this.logger.debug(
-        `[Initial Fuel] Recording initial fuel level for equipment ${equipmentId}`,
-      );
+      // this.logger.debug(
+      //   `[Initial Fuel] Recording initial fuel level for equipment ${equipmentId}`,
+      // );
 
       // Lookup fuel volume using calibration API
       let calibration: any;
@@ -773,10 +796,10 @@ export class EquipmentLogsService {
       const currentVolume = Number(calibration.volume);
       const currentPercentage = Number(calibration.percentage);
 
-      this.logger.debug(
-        `[Initial Fuel] equipment=${equipmentId} LLS=${info.fuel_level} ` +
-          `volume=${currentVolume}L percentage=${currentPercentage.toFixed(2)}%`,
-      );
+      // this.logger.debug(
+      //   `[Initial Fuel] equipment=${equipmentId} LLS=${info.fuel_level} ` +
+      //     `volume=${currentVolume}L percentage=${currentPercentage.toFixed(2)}%`,
+      // );
 
       // Insert initial fuel level into fuels table
       await this.fuelsService.create({
@@ -819,9 +842,9 @@ export class EquipmentLogsService {
         created_at: new Date(),
       });
 
-      this.logger.log(
-        `[Initial Fuel] Initial fuel level recorded for ${info.equipment_code}: ${currentVolume.toFixed(2)}L (${currentPercentage.toFixed(2)}%)`,
-      );
+      // this.logger.log(
+      //   `[Initial Fuel] Initial fuel level recorded for ${info.equipment_code}: ${currentVolume.toFixed(2)}L (${currentPercentage.toFixed(2)}%)`,
+      // );
     } catch (e: unknown) {
       this.logger.error(
         `Initial Fuel Error: ${e instanceof Error ? e.message : String(e)}`,
@@ -838,7 +861,7 @@ export class EquipmentLogsService {
   ) {
     try {
       // STEP 1: Calculate delta fuel (LLS) and delta time
-      const deltaFuel = info.fuel_level - lastLog.fuel_level;
+      // const deltaFuel = info.fuel_level - lastLog.fuel_level;
 
       // STEP 2: Lookup current fuel volume using calibration API
       let currentCalibration: any;
@@ -877,29 +900,76 @@ export class EquipmentLogsService {
 
       let eventType: string | null = null;
       const FUEL_ALERT_ID = '5c6e755c-28fb-4058-8180-0e887f98cd5a';
-
+      let startTime: Date = currentTime;
+      this.logger.warn(`fuelDifference: ${fuelDifference}`);
       // STEP 4: Check for FUEL DECREASE or INCREASE
-      if (fuelDifference <= -3.0) {
-        // Fuel is decreasing, find when it started
-        const decreaseStart = await this.repository.findFuelDecreaseStart(
-          equipmentId,
-          Number(lastLog.fuel_level),
-        );
+      // FUEL DECREASE only triggers when speed = 0 (equipment stopped/idle)
+      if (fuelDifference < 0 && Number(info.speed ?? 0) === 0) {
+        // Fuel is decreasing while stopped, find when the stop streak started
+        const stopStart =
+          await this.repository.findStopStreakStart(equipmentId);
 
-        const startTime = decreaseStart?.created_at
-          ? new Date(String(decreaseStart.created_at))
+        startTime = stopStart?.created_at
+          ? new Date(String(stopStart.created_at))
           : currentTime;
 
         const deltaTimeMinutes =
           (currentTime.getTime() - startTime.getTime()) / (1000 * 60);
 
-        this.logger.debug(
-          `[Fuel Alert] equipment=${equipmentId} deltaFuel=${deltaFuel} fuelDifference=${fuelDifference.toFixed(2)}L ` +
-            `deltaTime=${deltaTimeMinutes.toFixed(2)}m (from ${startTime.toISOString()})`,
+        // Calculate cumulative fuel difference from start of stop streak
+        let startVolume = previousVolume;
+        if (
+          stopStart?.fuel_level !== undefined &&
+          stopStart.fuel_level !== null
+        ) {
+          try {
+            const startCalibration =
+              await this.fuelCalibrationsService.lookupVolume(
+                equipmentId,
+                Number(stopStart.fuel_level),
+              );
+            startVolume = Number(startCalibration.volume);
+          } catch {
+            // fallback to previousVolume
+          }
+        }
+        const cumulativeDiff = currentVolume - startVolume;
+
+        // this.logger.debug(
+        //   `[Fuel Alert] equipment=${equipmentId} cumulativeDiff=${cumulativeDiff.toFixed(2)}L ` +
+        //     `deltaTime=${deltaTimeMinutes.toFixed(2)}m (from ${startTime.toISOString()})`,
+        // );
+
+        this.logger.warn(`[Fuel Alert] ═══ FUEL STREAK TRACE ═══`);
+        this.logger.warn(
+          `[Fuel Alert] equipment=${equipmentId} ` +
+            `currentTime=${currentTime.toISOString()} ` +
+            `speed=${info.speed ?? 0} ` +
+            `currentFuelLevel=${info.fuel_level} ` +
+            `currentVolume=${currentVolume.toFixed(2)}L`,
+        );
+        this.logger.warn(
+          `[Fuel Alert] lastLog fuel_level=${lastLog.fuel_level} ` +
+            `previousVolume=${previousVolume.toFixed(2)}L ` +
+            `perStepDiff=${fuelDifference.toFixed(2)}L`,
+        );
+        // this.logger.warn(
+        //   `[Fuel Alert] stopStart found=${!!stopStart} ` +
+        //     `stopStart.fuel_level=${stopStart?.fuel_level ?? 'N/A'} ` +
+        //     `stopStart.created_at=${stopStart?.created_at ?? 'N/A'}`,
+        // );
+        this.logger.warn(
+          `[Fuel Alert] startTime=${startTime.toISOString()} ` +
+            `deltaTimeMinutes=${deltaTimeMinutes.toFixed(2)}m`,
+        );
+        this.logger.warn(
+          `[Fuel Alert] startVolume=${startVolume.toFixed(2)}L ` +
+            `currentVolume=${currentVolume.toFixed(2)}L ` +
+            `cumulativeDiff=${cumulativeDiff.toFixed(2)}L`,
         );
 
-        // Check if decrease happened within 5 minutes
-        if (deltaTimeMinutes <= 5) {
+        // Check if cumulative decrease >= 3L and streak has lasted at least 5 minutes
+        if (cumulativeDiff <= -3.0 && deltaTimeMinutes >= 5) {
           eventType = 'FUEL DECREASE';
         }
       } else if (fuelDifference >= 3.0) {
@@ -908,10 +978,10 @@ export class EquipmentLogsService {
           (currentTime.getTime() - new Date(String(lastLog.time)).getTime()) /
           (1000 * 60);
 
-        this.logger.debug(
-          `[Fuel Alert] equipment=${equipmentId} deltaFuel=${deltaFuel} fuelDifference=${fuelDifference.toFixed(2)}L ` +
-            `deltaTime=${deltaTimeMinutes.toFixed(2)}m`,
-        );
+        // this.logger.debug(
+        //   `[Fuel Alert] equipment=${equipmentId} deltaFuel=${deltaFuel} fuelDifference=${fuelDifference.toFixed(2)}L ` +
+        //     `deltaTime=${deltaTimeMinutes.toFixed(2)}m`,
+        // );
 
         if (deltaTimeMinutes <= 5) {
           eventType = 'FUEL INCREASE';
@@ -964,46 +1034,57 @@ export class EquipmentLogsService {
         created_at: currentTime,
       });
 
-      this.logger.log(
-        `[Fuel Alert] ${eventType} logged for ${info.equipment_code}: ${Math.abs(fuelDifference).toFixed(2)}L`,
-      );
+      // this.logger.log(
+      //   `[Fuel Alert] ${eventType} logged for ${info.equipment_code}: ${Math.abs(fuelDifference).toFixed(2)}L`,
+      // );
 
-      // STEP 6: Create alert if event is FUEL DECREASE (always create, no duplicate check)
+      // STEP 6: Create alert if event is FUEL DECREASE (with duplicate check)
       if (eventType === 'FUEL DECREASE') {
-        await this.alertsService.create({
-          ...this.mapInfoToDto(
-            equipmentId,
-            logId,
-            FUEL_ALERT_ID,
-            eventType,
-            currentTime,
-            info,
-          ),
-        });
-        await this.equipmentStatusService.incrementAlertCount(equipmentId, 1);
-
-        // Emit alert via WebSocket
-        this.wsGateway.emitNewAlert({
-          equipment_id: equipmentId,
-          equipment_code: info.equipment_code,
-          alert_category_id: FUEL_ALERT_ID,
-          alert_type: eventType,
-          status: eventType,
-          fuel_level: info.fuel_level,
-          fuel_volume: currentVolume,
-          fuel_difference: fuelDifference,
-          longitude: info.longitude,
-          latitude: info.latitude,
-          segment: info.segment,
-          created_at: currentTime,
+        const activeAlert = await this.alertRepo.findOne({
+          where: {
+            equipment_id: equipmentId,
+            alert_category_id: FUEL_ALERT_ID,
+            resolved_at: null,
+          },
         });
 
-        // Emit alert summary update via WebSocket
-        await this.emitAlertSummaryUpdate(currentTime);
+        if (!activeAlert) {
+          await this.alertsService.create({
+            ...this.mapInfoToDto(
+              equipmentId,
+              logId,
+              FUEL_ALERT_ID,
+              eventType,
+              startTime,
+              info,
+            ),
+            resolved_at: currentTime,
+          });
+          await this.equipmentStatusService.incrementAlertCount(equipmentId, 1);
 
-        this.logger.log(
-          `[Fuel Alert] ${eventType} alert created for ${info.equipment_code}`,
-        );
+          // Emit alert via WebSocket
+          this.wsGateway.emitNewAlert({
+            equipment_id: equipmentId,
+            equipment_code: info.equipment_code,
+            alert_category_id: FUEL_ALERT_ID,
+            alert_type: eventType,
+            status: eventType,
+            fuel_level: info.fuel_level,
+            fuel_volume: currentVolume,
+            fuel_difference: fuelDifference,
+            longitude: info.longitude,
+            latitude: info.latitude,
+            segment: info.segment,
+            created_at: currentTime,
+          });
+
+          // Emit alert summary update via WebSocket
+          await this.emitAlertSummaryUpdate(currentTime);
+
+          // this.logger.log(
+          //   `[Fuel Alert] ${eventType} alert created for ${info.equipment_code}`,
+          // );
+        }
       }
     } catch (e: unknown) {
       this.logger.error(
@@ -1046,6 +1127,7 @@ export class EquipmentLogsService {
       log_id: Number(log_id), // atau log_id.toString()
       alert_category_id,
       status,
+      created_at,
       longitude: info.longitude,
       latitude: info.latitude,
       location_category: info.category_location,

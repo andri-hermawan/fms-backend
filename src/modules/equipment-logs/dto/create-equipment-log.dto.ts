@@ -151,6 +151,11 @@ export class CreateEquipmentLogDto {
   @IsNumber()
   vessel?: number;
 
+  @ApiProperty({ example: '2026-04-27T10:00:00Z' })
+  @IsOptional()
+  @IsDateString()
+  created_at?: string;
+
   // @ApiPropertyOptional({ example: 'Trase Utama' })
   // @IsString()
   // @IsOptional()

@@ -26,7 +26,11 @@ export class ProjectsService {
     }
     // 3. Ekstrak geometri dari GeoJSON jika ada (Optional Chaining agar aman)
     let extractedGeometry = null;
-    if (dto.geojson_origin?.features?.length > 0) {
+    if (
+      dto.geojson_origin &&
+      dto.geojson_origin.type === 'FeatureCollection' &&
+      dto.geojson_origin.features?.length > 0
+    ) {
       // Mengambil geometry dari feature pertama (index 0)
       extractedGeometry = dto.geojson_origin.features[0].geometry;
     }
