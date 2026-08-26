@@ -1,5 +1,5 @@
-import { IsNotEmpty, IsDateString } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsNotEmpty, IsDateString, IsOptional, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ActivitySummaryQueryDto {
   @ApiProperty({
@@ -24,6 +24,14 @@ export class ActivitySummaryQueryDto {
   @IsNotEmpty()
   @IsDateString()
   end_date: string;
+
+  @ApiPropertyOptional({
+    description: 'Shift filter (e.g. SHIFT 1)',
+    example: 'SHIFT 1',
+  })
+  @IsOptional()
+  @IsString()
+  shift?: string;
 }
 
 export class ActivitySummaryResponseDto {
