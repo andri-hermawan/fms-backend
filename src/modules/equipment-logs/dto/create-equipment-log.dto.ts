@@ -49,6 +49,11 @@ export class CreateEquipmentLogDto {
   @IsBoolean()
   engine_status?: boolean;
 
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  breakdown?: boolean;
+
   @ApiPropertyOptional({ example: 0 })
   @IsOptional()
   @IsInt()

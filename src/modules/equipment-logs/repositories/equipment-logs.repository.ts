@@ -50,6 +50,7 @@ export class EquipmentLogsRepository {
         vessel_status,
         status,
         shift,
+        breakdown,
         created_at
       ) VALUES (
         ${rest.time}::timestamptz,
@@ -90,6 +91,7 @@ export class EquipmentLogsRepository {
         ${rest.vessel_status},
         ${rest.status},
         ${rest.shift || null},
+        ${rest.breakdown ?? null},
         COALESCE(${rest.created_at}::timestamptz, NOW())
       )
       RETURNING
@@ -134,6 +136,7 @@ export class EquipmentLogsRepository {
       vessel_status,
       status,
       shift,
+      breakdown,
       created_at;
     `;
 
@@ -259,9 +262,7 @@ export class EquipmentLogsRepository {
     return result[0] ?? null;
   }
 
-  async findStopStreakStart(
-    equipment_id: string,
-  ) {
+  async findStopStreakStart(equipment_id: string) {
     const result = await this.prisma.$queryRaw<
       { created_at: Date; fuel_level: number }[]
     >`
@@ -304,7 +305,10 @@ export class EquipmentLogsRepository {
     equipmentId: string,
     startDate: Date,
     endDate: Date,
+    shift?: string,
   ): Promise<any> {
+    const shiftFilter = shift ? Prisma.sql`AND shift = ${shift}` : Prisma.sql``;
+
     const result = await this.prisma.$queryRaw<any[]>`
       WITH time_diffs AS (
         SELECT 
@@ -313,31 +317,41 @@ export class EquipmentLogsRepository {
           mileage,
           fuel_volume,
           fuel_percentage,
+          vessel_status,
           created_at,
           LEAD(created_at) OVER (ORDER BY created_at) as next_time,
           EXTRACT(EPOCH FROM (LEAD(created_at) OVER (ORDER BY created_at) - created_at)) / 3600 as duration_hours
         FROM equipment_logs
         WHERE equipment_id = ${equipmentId}::uuid
           AND created_at BETWEEN ${startDate} AND ${endDate}
+          ${shiftFilter}
         ORDER BY created_at
       ),
       status_durations AS (
         SELECT 
-          SUM(duration_hours) FILTER (WHERE status = 'RUNNING') as running_hours,
-          SUM(duration_hours) FILTER (WHERE status = 'IDLE') as idling_hours
+          SUM(duration_hours) FILTER (WHERE status = 'RUNNING' AND vessel_status IN ('EMPTY', 'LOADED')) as running_hours,
+          SUM(duration_hours) FILTER (WHERE status = 'RUNNING' AND vessel_status = 'EMPTY') as running_empty_hours,
+          SUM(duration_hours) FILTER (WHERE status = 'RUNNING' AND vessel_status = 'LOADED') as running_loaded_hours,
+          SUM(duration_hours) FILTER (WHERE status = 'IDLE' AND vessel_status IN ('EMPTY', 'LOADED')) as idling_hours,
+          SUM(duration_hours) FILTER (WHERE status = 'IDLE' AND vessel_status = 'EMPTY') as idling_empty_hours,
+          SUM(duration_hours) FILTER (WHERE status = 'IDLE' AND vessel_status = 'LOADED') as idling_loaded_hours
         FROM time_diffs
         WHERE next_time IS NOT NULL
       ),
       speed_stats AS (
         SELECT 
           AVG(speed) as avg_running_speed,
-          MAX(speed) as max_speed
+          AVG(speed) FILTER (WHERE vessel_status = 'EMPTY') as avg_running_speed_empty,
+          AVG(speed) FILTER (WHERE vessel_status = 'LOADED') as avg_running_speed_loaded,
+          MAX(speed) as max_speed,
+          MAX(speed) FILTER (WHERE vessel_status = 'EMPTY') as max_speed_empty,
+          MAX(speed) FILTER (WHERE vessel_status = 'LOADED') as max_speed_loaded
         FROM time_diffs
         WHERE status = 'RUNNING' AND speed > 0
       ),
       mileage_stats AS (
         SELECT 
-          MAX(mileage) - MIN(mileage) as total_mileage
+          (MAX(mileage) - MIN(mileage)) / 1000.0 as total_mileage
         FROM time_diffs
         WHERE mileage IS NOT NULL
       ),
@@ -348,6 +362,29 @@ export class EquipmentLogsRepository {
         WHERE equipment_id = ${equipmentId}::uuid
           AND created_at BETWEEN ${startDate} AND ${endDate}
           AND event_type = 'FUEL DECREASE'
+          ${shiftFilter}
+      ),
+      fuel_increase_stats AS (
+        SELECT 
+          SUM(ABS(fuel_difference)) as total_fuel_increase
+        FROM fuels
+        WHERE equipment_id = ${equipmentId}::uuid
+          AND created_at BETWEEN ${startDate} AND ${endDate}
+          AND event_type = 'FUEL INCREASE'
+          ${shiftFilter}
+      ),
+      first_fuel AS (
+        SELECT 
+          fuel_volume,
+          fuel_percentage
+        FROM equipment_logs
+        WHERE equipment_id = ${equipmentId}::uuid
+          AND created_at >= ${startDate}
+          AND created_at <= ${endDate}
+          AND fuel_volume IS NOT NULL
+          ${shiftFilter}
+        ORDER BY created_at ASC
+        LIMIT 1
       ),
       last_fuel AS (
         SELECT 
@@ -355,30 +392,52 @@ export class EquipmentLogsRepository {
           fuel_percentage
         FROM equipment_logs
         WHERE equipment_id = ${equipmentId}::uuid
+          AND created_at >= ${startDate}
           AND created_at <= ${endDate}
           AND fuel_volume IS NOT NULL
+          ${shiftFilter}
         ORDER BY created_at DESC
         LIMIT 1
       )
       SELECT 
-        COALESCE((SELECT running_hours FROM status_durations), 0) as running_time,
-        COALESCE((SELECT idling_hours FROM status_durations), 0) as idling_time,
-        COALESCE((SELECT total_mileage FROM mileage_stats), 0) as mileage,
-        COALESCE((SELECT avg_running_speed FROM speed_stats), 0) as avg_running_speed,
-        COALESCE((SELECT max_speed FROM speed_stats), 0) as max_running_speed,
-        COALESCE((SELECT total_fuel_decrease FROM fuel_stats), 0) as fuel_decrease,
-        COALESCE((SELECT fuel_volume FROM last_fuel), 0) as fuel_remaining,
+        COALESCE(ROUND((SELECT running_hours FROM status_durations)::numeric, 2), 0) as running_time,
+        COALESCE(ROUND((SELECT running_empty_hours FROM status_durations)::numeric, 2), 0) as running_empty,
+        COALESCE(ROUND((SELECT running_loaded_hours FROM status_durations)::numeric, 2), 0) as running_loaded,
+        COALESCE(ROUND((SELECT idling_hours FROM status_durations)::numeric, 2), 0) as idling_time,
+        COALESCE(ROUND((SELECT idling_empty_hours FROM status_durations)::numeric, 2), 0) as idling_empty,
+        COALESCE(ROUND((SELECT idling_loaded_hours FROM status_durations)::numeric, 2), 0) as idling_loaded,
+        COALESCE(ROUND((SELECT total_mileage FROM mileage_stats)::numeric, 2), 0) as mileage,
+        COALESCE(ROUND((SELECT avg_running_speed FROM speed_stats)::numeric, 2), 0) as avg_running_speed,
+        COALESCE(ROUND((SELECT avg_running_speed_empty FROM speed_stats)::numeric, 2), 0) as avg_running_speed_empty,
+        COALESCE(ROUND((SELECT avg_running_speed_loaded FROM speed_stats)::numeric, 2), 0) as avg_running_speed_loaded,
+        COALESCE(ROUND((SELECT max_speed FROM speed_stats)::numeric, 2), 0) as max_running_speed,
+        COALESCE(ROUND((SELECT max_speed_empty FROM speed_stats)::numeric, 2), 0) as max_running_speed_empty,
+        COALESCE(ROUND((SELECT max_speed_loaded FROM speed_stats)::numeric, 2), 0) as max_running_speed_loaded,
+        COALESCE(ROUND((SELECT fuel_volume FROM first_fuel)::numeric, 2), 0) as fuel_start_run,
+        COALESCE(ROUND((SELECT total_fuel_decrease FROM fuel_stats)::numeric, 2), 0) as fuel_decrease,
+        COALESCE(ROUND((SELECT total_fuel_increase FROM fuel_increase_stats)::numeric, 2), 0) as fuel_increase,
+        COALESCE(ROUND((SELECT fuel_volume FROM last_fuel)::numeric, 2), 0) as fuel_remaining,
         COALESCE((SELECT fuel_percentage FROM last_fuel), 0) as fuel_remaining_percentage
     `;
 
     return (
       result[0] || {
         running_time: 0,
+        running_empty: 0,
+        running_loaded: 0,
         idling_time: 0,
+        idling_empty: 0,
+        idling_loaded: 0,
         mileage: 0,
         avg_running_speed: 0,
+        avg_running_speed_empty: 0,
+        avg_running_speed_loaded: 0,
         max_running_speed: 0,
+        max_running_speed_empty: 0,
+        max_running_speed_loaded: 0,
+        fuel_start_run: 0,
         fuel_decrease: 0,
+        fuel_increase: 0,
         fuel_remaining: 0,
         fuel_remaining_percentage: 0,
       }
@@ -548,6 +607,7 @@ export class EquipmentLogsRepository {
   async getSegmentSpeedSummary(params: {
     created_at?: string;
     shift?: string;
+    speed?: string;
   }) {
     const conditions: string[] = [];
     const values: any[] = [];
@@ -563,6 +623,22 @@ export class EquipmentLogsRepository {
     if (params.shift) {
       conditions.push(`el.shift = $${values.length + 1}`);
       values.push(params.shift);
+    }
+    if (params.speed !== undefined) {
+      const selectedSpeed = Number(params.speed);
+      const bucketStart =
+        selectedSpeed <= 10 ? 0 : Math.floor((selectedSpeed - 1) / 10) * 10 + 1;
+      const bucketEnd = bucketStart + 9;
+
+      if (selectedSpeed > 50) {
+        conditions.push(`el.speed > $${values.length + 1}`);
+        values.push(50);
+      } else {
+        conditions.push(
+          `el.speed >= $${values.length + 1} AND el.speed <= $${values.length + 2}`,
+        );
+        values.push(bucketStart, bucketEnd);
+      }
     }
 
     const whereClause =

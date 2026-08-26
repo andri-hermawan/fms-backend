@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString } from 'class-validator';
+import { IsNumberString, IsOptional, IsString } from 'class-validator';
 
 export class QueryByDateShiftDto {
   @ApiPropertyOptional({
@@ -13,4 +13,13 @@ export class QueryByDateShiftDto {
   @IsOptional()
   @IsString()
   shift?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Speed bucket selector: 0-10, 11-20, 21-30, 31-40, 41-50, or above 50',
+    example: '13',
+  })
+  @IsOptional()
+  @IsNumberString()
+  speed?: string;
 }

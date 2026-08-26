@@ -31,6 +31,8 @@ export class EquipmentStatusRepository {
         engine_status,
         status,
         shift,
+        breakdown,
+        gsm_signal,
         updated_at
       ) VALUES (
         ${rest.equipment_id}::uuid, 
@@ -53,6 +55,8 @@ export class EquipmentStatusRepository {
         ${rest.engine_status},
         ${rest.status},
         ${rest.shift || null},
+        ${rest.breakdown ?? null},
+        ${rest.gsm_signal ?? null},
         NOW()
       )
         ON CONFLICT (equipment_id) DO UPDATE SET
@@ -75,6 +79,8 @@ export class EquipmentStatusRepository {
           engine_status = EXCLUDED.engine_status,
           status = EXCLUDED.status,
           shift = EXCLUDED.shift,
+          breakdown = EXCLUDED.breakdown,
+          gsm_signal = EXCLUDED.gsm_signal,
           updated_at = NOW();
       `;
   }
@@ -111,6 +117,8 @@ export class EquipmentStatusRepository {
         es.vessel_status,
         es.status,
         es.engine_status,
+        es.breakdown,
+        es.gsm_signal,
         ST_Y(es.location::geometry) AS latitude,
         ST_X(es.location::geometry) AS longitude,
 

@@ -109,6 +109,7 @@ model equipment_logs {
   vessel_status            String?                  @db.VarChar(50)
   engine_status            Boolean?
   status                   String?                  @db.VarChar(20)
+  breakdown                Boolean?
   shift                    String?                  @db.VarChar(100)
   created_at               DateTime?                @default(now()) @db.Timestamptz(6)
   created_by               String?                  @db.Uuid
@@ -163,6 +164,8 @@ model equipment_status {
   vessel_status     String?                  @db.VarChar(50)
   engine_status     Boolean?
   status            String?                  @db.VarChar(20)
+  breakdown         Boolean?
+  gsm_signal        Int?                     @db.SmallInt
   shift             String?                  @db.VarChar(100)
   created_at        DateTime?                @default(now()) @db.Timestamp(6)
   created_by        String?                  @db.Uuid

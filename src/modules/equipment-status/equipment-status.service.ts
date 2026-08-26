@@ -51,6 +51,8 @@ export class EquipmentStatusService {
       mileage: item.mileage,
       vessel_status: item.vessel_status,
       engine_status: item.engine_status,
+      breakdown: item.breakdown,
+      gsm_signal: item.gsm_signal,
     }));
   }
 

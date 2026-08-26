@@ -43,6 +43,7 @@ export class EquipmentLogsService {
       fuel_level,
       fuel_temperature,
       engine_status,
+      breakdown,
       vessel,
       equipment_id,
       gsm_signal,
@@ -244,6 +245,7 @@ export class EquipmentLogsService {
       vessel: vessel,
       vessel_status: currentVesselStatus,
       status: opStatus,
+      breakdown: breakdown || false,
       gsm_signal: gsmSignal,
       gsm_operator: gsmOperator,
       created_at: created_at ? new Date(created_at) : undefined,
@@ -298,6 +300,7 @@ export class EquipmentLogsService {
     const alertInfo = {
       is_inside: isInside,
       equipment_code: equipment?.equipment_code || 'N/A',
+      breakdown: breakdown || false,
       vessel: vessel || 0,
       segment: segmentName,
       category_location: categoryLocation,
@@ -522,6 +525,8 @@ export class EquipmentLogsService {
         mileage: dto.mileage ?? 0,
         vessel_status: currentVesselStatus,
         status: savedLog.status,
+        breakdown: dto.breakdown || false,
+        gsm_signal: dto.gsm_signal ?? 0,
         shift: shiftName,
         alert_count: alertCount,
         last_update_at: currentTime,
@@ -548,6 +553,8 @@ export class EquipmentLogsService {
         mileage: dto.mileage ?? 0,
         vessel_status: currentVesselStatus,
         status: savedLog.status,
+        breakdown: dto.breakdown || false,
+        gsm_signal: dto.gsm_signal ?? 0,
         shift: shiftName,
         alert_count: alertCount,
         last_update_at: currentTime,
@@ -1146,6 +1153,7 @@ export class EquipmentLogsService {
       engine_status: info.engine_status,
       is_read: false,
       shift: info.shift,
+      breakdown: info.breakdown,
     };
   }
 
@@ -1202,7 +1210,7 @@ export class EquipmentLogsService {
   }
 
   async getActivitySummary(query: ActivitySummaryQueryDto) {
-    const { equipment_id, start_date, end_date } = query;
+    const { equipment_id, start_date, end_date, shift } = query;
 
     // Validate equipment exists
     const equipment = await this.equipmentRepo.findById(equipment_id);
@@ -1212,24 +1220,30 @@ export class EquipmentLogsService {
       );
     }
 
-    // Parse dates with time boundaries
-    const startDate = new Date(start_date);
-    startDate.setHours(0, 0, 0, 0);
-
-    const endDate = new Date(end_date);
-    endDate.setHours(23, 59, 59, 999);
+    // Date-only query values represent calendar days in the application's WIB timezone.
+    const startDate = new Date(
+      /^\d{4}-\d{2}-\d{2}$/.test(start_date)
+        ? `${start_date}T00:00:00.000+07:00`
+        : start_date,
+    );
+    const endDate = new Date(
+      /^\d{4}-\d{2}-\d{2}$/.test(end_date)
+        ? `${end_date}T23:59:59.999+07:00`
+        : end_date,
+    );
 
     // Get activity summary from repository
     const summary = await this.repository.getActivitySummary(
       equipment_id,
       startDate,
       endDate,
+      shift,
     );
 
-    // Calculate fuel ratio (km per liter)
+    // Calculate fuel burn ratio (km per liter)
     const fuelDecrease = Number(summary.fuel_decrease) || 0;
     const mileage = Number(summary.mileage) || 0;
-    const fuelRatio = fuelDecrease > 0 ? mileage / fuelDecrease : 0;
+    const fuelBurnRatio = fuelDecrease > 0 ? mileage / fuelDecrease : 0;
 
     return {
       equipment_id,
@@ -1238,17 +1252,26 @@ export class EquipmentLogsService {
         start: startDate.toISOString(),
         end: endDate.toISOString(),
       },
+      shift: shift || null,
       summary: {
         running_time: Number(summary.running_time) || 0,
+        running_empty: Number(summary.running_empty) || 0,
+        running_loaded: Number(summary.running_loaded) || 0,
         idling_time: Number(summary.idling_time) || 0,
-        mileage: Number(summary.mileage) || 0,
+        idling_empty: Number(summary.idling_empty) || 0,
+        idling_loaded: Number(summary.idling_loaded) || 0,
         avg_running_speed: Number(summary.avg_running_speed) || 0,
+        avg_running_speed_empty: Number(summary.avg_running_speed_empty) || 0,
+        avg_running_speed_loaded: Number(summary.avg_running_speed_loaded) || 0,
         max_running_speed: Number(summary.max_running_speed) || 0,
-        fuel_decrease: Number(summary.fuel_decrease) || 0,
-        fuel_ratio: Number(fuelRatio.toFixed(2)) || 0,
+        max_running_speed_empty: Number(summary.max_running_speed_empty) || 0,
+        max_running_speed_loaded: Number(summary.max_running_speed_loaded) || 0,
+        mileage: Number(summary.mileage) || 0,
+        fuel_start_run: Number(summary.fuel_start_run) || 0,
         fuel_remaining: Number(summary.fuel_remaining) || 0,
-        fuel_remaining_percentage:
-          Number(summary.fuel_remaining_percentage) || 0,
+        fuel_increase: Number(summary.fuel_increase) || 0,
+        fuel_decrease: Number(summary.fuel_decrease) || 0,
+        fuel_burn_ratio: Number(fuelBurnRatio.toFixed(2)) || 0,
       },
     };
   }
