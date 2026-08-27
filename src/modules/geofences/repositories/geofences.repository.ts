@@ -64,12 +64,16 @@ export class GeofencesRepository {
     where?: Prisma.geofencesWhereInput;
   }) {
     const { skip, take, where } = params;
+    const filteredWhere: Prisma.geofencesWhereInput = {
+      AND: [where ?? {}, { orig_fid: 0 }],
+    };
+
     return await this.prisma.$transaction([
-      this.prisma.geofences.count({ where }),
+      this.prisma.geofences.count({ where: filteredWhere }),
       this.prisma.geofences.findMany({
         skip,
         take,
-        where,
+        where: filteredWhere,
         orderBy: { created_at: 'desc' },
         include: { equipments: { select: { equipment_code: true } } },
       }),
@@ -111,6 +115,7 @@ export class GeofencesRepository {
         equipment_code: string;
         time: string;
         event: string;
+        segment: string;
       }[],
     ]
   > {
@@ -123,7 +128,7 @@ export class GeofencesRepository {
       end_date,
     } = params;
 
-    const conditions: Prisma.Sql[] = [];
+    const conditions: Prisma.Sql[] = [Prisma.sql`g.orig_fid = 0`];
 
     if (equipment_code) {
       conditions.push(
@@ -167,20 +172,22 @@ export class GeofencesRepository {
         equipment_code: string;
         time: string;
         event: string;
+        segment: string;
       }[]
     >`
     SELECT
       g.id,
       e.equipment_code,
       TO_CHAR(g.created_at, 'HH24:MI') AS time,
-      g.event
+      g.event,
+      g.segment
     FROM geofences g
     LEFT JOIN equipments e
       ON e.id = g.equipment_id
 
     ${where}
 
-    ORDER BY g.created_at DESC
+    ORDER BY g.created_at Desc
 
     OFFSET ${skip}
     LIMIT ${take}
@@ -197,7 +204,7 @@ export class GeofencesRepository {
   }) {
     const { equipment_code, segment, start_date, end_date } = params;
 
-    const conditions: Prisma.Sql[] = [];
+    const conditions: Prisma.Sql[] = [Prisma.sql`g.orig_fid = 0`];
 
     if (equipment_code) {
       conditions.push(
