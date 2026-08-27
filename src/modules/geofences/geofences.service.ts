@@ -96,6 +96,7 @@ export class GeofencesService {
         equipment_code: item.equipment_code,
         time: item.time,
         event: item.event,
+        segment: item.segment,
       })),
       meta: {
         total,

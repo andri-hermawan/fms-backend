@@ -44,6 +44,10 @@ model alerts {
   updated_by        String?                  @db.Uuid
   alert_category_id String?                  @db.Uuid
   is_read           Boolean?
+  fuel_temperature  Decimal?                 @db.Decimal(10, 2)
+  fuel_volume       Decimal?                 @db.Decimal(10, 2)
+  fuel_percentage   Decimal?                 @db.Decimal(10, 2)
+  fuel_difference   Decimal?                 @db.Decimal(10, 2)
   alert_categories  alert_categories?        @relation(fields: [alert_category_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "alerts_category_id_fkey")
   equipments        equipments?              @relation(fields: [equipment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   equipment_logs    equipment_logs?          @relation(fields: [log_id], references: [id], onDelete: NoAction, onUpdate: NoAction)

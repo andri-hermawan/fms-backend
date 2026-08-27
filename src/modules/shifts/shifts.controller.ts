@@ -63,6 +63,14 @@ export class ShiftsController {
     return this.shiftsService.findCurrentByProject(projectId, time);
   }
 
+  @Get('by-name/:shiftName')
+  @ApiOperation({
+    summary: 'Mengambil shift berdasarkan nama shift',
+  })
+  findByName(@Param('shiftName') shiftName: string) {
+    return this.shiftsService.findByName(shiftName);
+  }
+
   @Get(':id')
   @ApiOperation({
     summary: 'Mengambil detail shift berdasarkan ID (UUID)',

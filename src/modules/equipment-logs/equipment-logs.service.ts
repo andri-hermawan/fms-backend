@@ -309,7 +309,12 @@ export class EquipmentLogsService {
       latitude,
       speed: speed || 0,
       fuel_level: fuel_level || 0,
+      fuel_volume: fuelVolume,
+      fuel_percentage: fuelPercentage,
+      fuel_difference: fuelDifference,
+      fuel_temperature: fuel_temperature,
       engine_status: engine_status || false,
+      mileage: dto.mileage,
       vessel_status: currentVesselStatus,
       shift: shiftName,
     };
@@ -327,11 +332,39 @@ export class EquipmentLogsService {
     );
 
     // STEP 9: Push geofence transition events (IN, OUT, or OFF TRACK).
-    if (lastLog) {
-      const isSegmentChanged = lastLog.segment !== segmentName;
-      const wasInside = lastLog.is_inside;
+    {
+      const previousOrigFid = Number(lastLog?.orig_fid) || 0;
+      const currentOrigFid = Number(origFid) || 0;
+      const hasValidSegment = segmentName !== 'Unknown';
+      const latestGeofence = await this.geofenceService.findAll({
+        equipment_id: dto.equipment_id,
+        page: 1,
+        limit: 1,
+      });
+      const lastGeofence = latestGeofence.data[0];
+      const shouldCreateIn =
+        hasValidSegment &&
+        currentOrigFid === 0 &&
+        lastGeofence?.event === 'OUT' &&
+        lastGeofence.segment !== segmentName;
+      const shouldCreateOut =
+        hasValidSegment &&
+        ((currentOrigFid === 0 && !lastGeofence) ||
+          (previousOrigFid === 0 &&
+            currentOrigFid !== 0 &&
+            lastGeofence?.event === 'IN'));
 
-      if (wasInside && (isSegmentChanged || !isInside)) {
+      // this.logger.warn(
+      //   `[Geofence] equipment=${dto.equipment_id} ` +
+      //     `previousSegment=${lastLog?.segment ?? 'NONE'} currentSegment=${segmentName} ` +
+      //     `previousOrigFid=${previousOrigFid} currentOrigFid=${currentOrigFid} ` +
+      //     `lastEvent=${lastGeofence?.event ?? 'NONE'} ` +
+      //     `lastEventSegment=${lastGeofence?.segment ?? 'NONE'} ` +
+      //     `shouldIN=${shouldCreateIn} shouldOUT=${shouldCreateOut}`,
+      // );
+
+      if (shouldCreateOut) {
+        // this.logger.warn('[Geofence] CREATE OUT');
         const newGeofence = await this.geofenceService.create({
           equipment_id: dto.equipment_id,
           log_id: savedLog.id,
@@ -341,10 +374,10 @@ export class EquipmentLogsService {
           description: '',
           longitude,
           latitude,
-          is_inside: lastLog.is_inside,
-          orig_fid: lastLog.orig_fid,
-          location_category: lastLog.category_location,
-          segment: lastLog.segment,
+          is_inside: lastLog?.is_inside ?? isInside,
+          orig_fid: lastLog?.orig_fid ?? origFid,
+          location_category: lastLog?.category_location ?? categoryLocation,
+          segment: lastLog?.segment ?? segmentName,
           speed,
           fuel_level,
           vessel: savedLog.vessel,
@@ -359,7 +392,7 @@ export class EquipmentLogsService {
           equipment_id: dto.equipment_id,
           equipment_code: equipment?.equipment_code,
           event: 'OUT',
-          segment: lastLog.segment,
+          segment: lastLog?.segment ?? segmentName,
           longitude,
           latitude,
           created_at: created_at || undefined,
@@ -368,7 +401,8 @@ export class EquipmentLogsService {
         this.wsGateway.emitNewGeofence(newGeofence);
       }
 
-      if (isInside && (isSegmentChanged || !wasInside)) {
+      if (shouldCreateIn) {
+        // this.logger.warn('[Geofence] CREATE IN');
         const newGeofence = await this.geofenceService.create({
           equipment_id: dto.equipment_id,
           log_id: savedLog.id,
@@ -396,43 +430,6 @@ export class EquipmentLogsService {
           equipment_id: dto.equipment_id,
           equipment_code: equipment?.equipment_code,
           event: 'IN',
-          segment: savedLog.segment,
-          longitude,
-          latitude,
-          created_at: created_at || undefined,
-        });
-
-        this.wsGateway.emitNewGeofence(newGeofence);
-      }
-
-      if (!isInside && wasInside) {
-        const newGeofence = await this.geofenceService.create({
-          equipment_id: dto.equipment_id,
-          log_id: savedLog.id,
-          alert_category: 'GEOFENCING',
-          event: 'OFF TRACK',
-          is_alert: false,
-          description: '',
-          longitude,
-          latitude,
-          is_inside: savedLog.is_inside,
-          orig_fid: savedLog.orig_fid,
-          location_category: savedLog.category_location,
-          segment: savedLog.segment,
-          speed,
-          fuel_level,
-          vessel: savedLog.vessel,
-          mileage: savedLog.mileage,
-          vessel_status: savedLog.vessel_status,
-          engine_status,
-          shift: shiftName,
-          created_at: created_at || undefined,
-        });
-
-        this.wsGateway.emitGeofenceEvent({
-          equipment_id: dto.equipment_id,
-          equipment_code: equipment?.equipment_code,
-          event: 'OFF TRACK',
           segment: savedLog.segment,
           longitude,
           latitude,
@@ -580,10 +577,17 @@ export class EquipmentLogsService {
 
       // Resolve the current active alert immediately after returning inside.
       if (info.is_inside) {
+        const lastStoppedOutside = await this.repository.findLastStoppedOutside(
+          equipmentId,
+          logId,
+        );
+        const resolvedTime = lastStoppedOutside?.created_at
+          ? new Date(String(lastStoppedOutside.created_at))
+          : currentTime;
         const resolvedCount = await this.alertRepo.resolveActive(
           equipmentId,
           'a9bd6aa2-94d5-4266-9135-0fff314a6714',
-          currentTime,
+          resolvedTime,
         );
         if (resolvedCount > 0) {
           // this.logger.log(
@@ -629,7 +633,7 @@ export class EquipmentLogsService {
               logId,
               'a9bd6aa2-94d5-4266-9135-0fff314a6714',
               'Off Track',
-              currentTime,
+              startTimeOutside,
               info,
             ),
           });
@@ -646,7 +650,7 @@ export class EquipmentLogsService {
             latitude: info.latitude,
             segment: info.segment,
             speed: info.speed,
-            created_at: currentTime,
+            created_at: startTimeOutside,
           });
 
           // Emit alert summary update via WebSocket
@@ -677,16 +681,25 @@ export class EquipmentLogsService {
 
       // Resolve overspeed after speed returns to 50 or below.
       if (speed <= 50) {
-        await this.alertRepo.resolveActive(equipmentId, OVER_SPEED_ID, currentTime);
+        await this.alertRepo.resolveActive(
+          equipmentId,
+          OVER_SPEED_ID,
+          currentTime,
+        );
       }
 
-      // Resolve underspeed after speed reaches 10 or above.
-      if (speed >= 10) {
-        await this.alertRepo.resolveActive(equipmentId, UNDER_SPEED_ID, currentTime);
+      // Resolve underspeed when speed reaches 10 or above, or stops at 0.
+      if (speed === 0 || speed >= 10) {
+        await this.alertRepo.resolveActive(
+          equipmentId,
+          UNDER_SPEED_ID,
+          currentTime,
+        );
       }
 
       let categoryId: string | null = null;
       let alertName: string | null = null;
+      let alertCreatedAt = currentTime;
 
       if (speed > 50) {
         const overSpeedStart =
@@ -700,6 +713,7 @@ export class EquipmentLogsService {
         if (diffMinutes >= 1) {
           categoryId = OVER_SPEED_ID;
           alertName = 'Overspeed';
+          alertCreatedAt = startTimeOverSpeed;
         }
       } else if (speed > 0 && speed < 10) {
         // Same pattern as off-track: get the first log in the active streak.
@@ -721,6 +735,7 @@ export class EquipmentLogsService {
         if (diffMinutes >= 2) {
           categoryId = UNDER_SPEED_ID;
           alertName = 'Underspeed';
+          alertCreatedAt = startTimeUnderSpeed;
         }
       }
 
@@ -730,9 +745,16 @@ export class EquipmentLogsService {
         where: {
           equipment_id: equipmentId,
           alert_category_id: categoryId,
-          resolved_at: null,
+          created_at: alertCreatedAt,
         },
       });
+
+      if (activeAlert && alertName === 'Underspeed') {
+        await this.alertRepo.update(activeAlert.id, {
+          resolved_at: currentTime,
+        });
+        return;
+      }
 
       if (!activeAlert) {
         await this.alertsService.create({
@@ -741,9 +763,10 @@ export class EquipmentLogsService {
             logId,
             categoryId,
             alertName,
-            currentTime,
+            alertCreatedAt,
             info,
           ),
+          resolved_at: currentTime,
         });
         await this.equipmentStatusService.incrementAlertCount(equipmentId, 1);
 
@@ -758,7 +781,7 @@ export class EquipmentLogsService {
           latitude: info.latitude,
           segment: info.segment,
           speed: info.speed,
-          created_at: currentTime,
+          created_at: alertCreatedAt,
         });
 
         // Emit alert summary update via WebSocket
@@ -908,7 +931,7 @@ export class EquipmentLogsService {
       let eventType: string | null = null;
       const FUEL_ALERT_ID = '5c6e755c-28fb-4058-8180-0e887f98cd5a';
       let startTime: Date = currentTime;
-      this.logger.warn(`fuelDifference: ${fuelDifference}`);
+      // this.logger.warn(`fuelDifference: ${fuelDifference}`);
       // STEP 4: Check for FUEL DECREASE or INCREASE
       // FUEL DECREASE only triggers when speed = 0 (equipment stopped/idle)
       if (fuelDifference < 0 && Number(info.speed ?? 0) === 0) {
@@ -947,33 +970,33 @@ export class EquipmentLogsService {
         //     `deltaTime=${deltaTimeMinutes.toFixed(2)}m (from ${startTime.toISOString()})`,
         // );
 
-        this.logger.warn(`[Fuel Alert] ═══ FUEL STREAK TRACE ═══`);
-        this.logger.warn(
-          `[Fuel Alert] equipment=${equipmentId} ` +
-            `currentTime=${currentTime.toISOString()} ` +
-            `speed=${info.speed ?? 0} ` +
-            `currentFuelLevel=${info.fuel_level} ` +
-            `currentVolume=${currentVolume.toFixed(2)}L`,
-        );
-        this.logger.warn(
-          `[Fuel Alert] lastLog fuel_level=${lastLog.fuel_level} ` +
-            `previousVolume=${previousVolume.toFixed(2)}L ` +
-            `perStepDiff=${fuelDifference.toFixed(2)}L`,
-        );
+        // this.logger.warn(`[Fuel Alert] ═══ FUEL STREAK TRACE ═══`);
+        // this.logger.warn(
+        //   `[Fuel Alert] equipment=${equipmentId} ` +
+        //     `currentTime=${currentTime.toISOString()} ` +
+        //     `speed=${info.speed ?? 0} ` +
+        //     `currentFuelLevel=${info.fuel_level} ` +
+        //     `currentVolume=${currentVolume.toFixed(2)}L`,
+        // );
+        // this.logger.warn(
+        //   `[Fuel Alert] lastLog fuel_level=${lastLog.fuel_level} ` +
+        //     `previousVolume=${previousVolume.toFixed(2)}L ` +
+        //     `perStepDiff=${fuelDifference.toFixed(2)}L`,
+        // );
         // this.logger.warn(
         //   `[Fuel Alert] stopStart found=${!!stopStart} ` +
         //     `stopStart.fuel_level=${stopStart?.fuel_level ?? 'N/A'} ` +
         //     `stopStart.created_at=${stopStart?.created_at ?? 'N/A'}`,
         // );
-        this.logger.warn(
-          `[Fuel Alert] startTime=${startTime.toISOString()} ` +
-            `deltaTimeMinutes=${deltaTimeMinutes.toFixed(2)}m`,
-        );
-        this.logger.warn(
-          `[Fuel Alert] startVolume=${startVolume.toFixed(2)}L ` +
-            `currentVolume=${currentVolume.toFixed(2)}L ` +
-            `cumulativeDiff=${cumulativeDiff.toFixed(2)}L`,
-        );
+        // this.logger.warn(
+        //   `[Fuel Alert] startTime=${startTime.toISOString()} ` +
+        //     `deltaTimeMinutes=${deltaTimeMinutes.toFixed(2)}m`,
+        // );
+        // this.logger.warn(
+        //   `[Fuel Alert] startVolume=${startVolume.toFixed(2)}L ` +
+        //     `currentVolume=${currentVolume.toFixed(2)}L ` +
+        //     `cumulativeDiff=${cumulativeDiff.toFixed(2)}L`,
+        // );
 
         // Check if cumulative decrease >= 3L and streak has lasted at least 5 minutes
         if (cumulativeDiff <= -3.0 && deltaTimeMinutes >= 5) {
@@ -1047,15 +1070,19 @@ export class EquipmentLogsService {
 
       // STEP 6: Create alert if event is FUEL DECREASE (with duplicate check)
       if (eventType === 'FUEL DECREASE') {
-        const activeAlert = await this.alertRepo.findOne({
+        const existingAlert = await this.alertRepo.findOne({
           where: {
             equipment_id: equipmentId,
             alert_category_id: FUEL_ALERT_ID,
-            resolved_at: null,
+            created_at: startTime,
           },
         });
 
-        if (!activeAlert) {
+        if (existingAlert) {
+          await this.alertRepo.update(existingAlert.id, {
+            resolved_at: currentTime,
+          });
+        } else {
           await this.alertsService.create({
             ...this.mapInfoToDto(
               equipmentId,
@@ -1082,7 +1109,7 @@ export class EquipmentLogsService {
             longitude: info.longitude,
             latitude: info.latitude,
             segment: info.segment,
-            created_at: currentTime,
+            created_at: startTime,
           });
 
           // Emit alert summary update via WebSocket

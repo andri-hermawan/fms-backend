@@ -12,7 +12,8 @@ export class AlertsRepository {
       INSERT INTO alerts (
         equipment_id, alert_category_id,log_id, 
         location, is_inside,orig_fid, location_category,
-        segment, speed, fuel_level,
+        segment, speed, fuel_level, fuel_volume, fuel_percentage,
+        fuel_difference, fuel_temperature,
         vessel, mileage, vessel_status, engine_status, 
         status, shift, is_read, created_at, resolved_at
       ) VALUES (
@@ -20,6 +21,8 @@ export class AlertsRepository {
         ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326),
         ${rest.is_inside}, ${rest.orig_fid}, ${rest.location_category},
         ${rest.segment}, ${rest.speed}, ${rest.fuel_level},
+        ${rest.fuel_volume}, ${rest.fuel_percentage},
+        ${rest.fuel_difference}, ${rest.fuel_temperature},
         ${rest.vessel}, ${rest.mileage}, ${rest.vessel_status}, ${rest.engine_status},
         ${rest.status}, ${rest.shift || null}, ${rest.is_read ?? false},
         COALESCE(${rest.created_at}::timestamptz, NOW()),

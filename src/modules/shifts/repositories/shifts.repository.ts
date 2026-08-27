@@ -32,6 +32,15 @@ export class ShiftsRepository {
     return await this.prisma.shifts.findUnique({ where: { shift_code } });
   }
 
+  async findByName(shift_name: string): Promise<shifts[]> {
+    return await this.prisma.shifts.findMany({
+      where: {
+        shift_name: { equals: shift_name, mode: 'insensitive' },
+      },
+      orderBy: { sequence: 'asc' },
+    });
+  }
+
   async update(
     id: string,
     data: Prisma.shiftsUncheckedUpdateInput,

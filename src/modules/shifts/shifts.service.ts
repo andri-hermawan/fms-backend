@@ -20,7 +20,7 @@ export class ShiftsService {
       );
     }
 
-    return this.repository.create({
+    const shift = await this.repository.create({
       shift_code: dto.shift_code,
       shift_name: dto.shift_name,
       status: dto.status || 'active',
@@ -30,6 +30,7 @@ export class ShiftsService {
       sequence: dto.sequence,
       timezone: dto.timezone || 'Asia/Jakarta',
     });
+    return this.formatShift(shift);
   }
 
   async findAll(query: QueryShiftDto) {
@@ -60,7 +61,7 @@ export class ShiftsService {
 
     // Standar format balikan API Enterprise dengan meta pagination
     return {
-      data,
+      data: data.map((shift) => this.formatShift(shift)),
       meta: {
         total,
         page,
@@ -75,7 +76,12 @@ export class ShiftsService {
     if (!shift) {
       throw new NotFoundException(`Shift with ID '${id}' not found`);
     }
-    return shift;
+    return this.formatShift(shift);
+  }
+
+  async findByName(shiftName: string) {
+    const shifts = await this.repository.findByName(shiftName);
+    return shifts.map((shift) => this.formatShift(shift));
   }
 
   async update(id: string, dto: UpdateShiftDto) {
@@ -91,7 +97,7 @@ export class ShiftsService {
       }
     }
 
-    return this.repository.update(id, {
+    const shift = await this.repository.update(id, {
       shift_code: dto.shift_code,
       shift_name: dto.shift_name,
       project_id: dto.project_id,
@@ -102,6 +108,7 @@ export class ShiftsService {
       end_time: dto.end_time ? this.toTime(dto.end_time) : undefined,
       updated_at: new Date(),
     });
+    return this.formatShift(shift);
   }
 
   async remove(id: string) {
@@ -131,8 +138,23 @@ export class ShiftsService {
     return {
       project_id: projectId,
       checked_time: currentTime ?? checkedAt.toTimeString().slice(0, 5),
-      shift: current ?? null,
+      shift: current ? this.formatShift(current) : null,
     };
+  }
+
+  private formatShift(shift: any) {
+    return {
+      ...shift,
+      start_time: this.formatTime(shift.start_time),
+      end_time: this.formatTime(shift.end_time),
+    };
+  }
+
+  private formatTime(value: Date | null | undefined) {
+    if (!value) return value;
+    return `${String(value.getUTCHours()).padStart(2, '0')}:${String(
+      value.getUTCMinutes(),
+    ).padStart(2, '0')}`;
   }
 
   private toTime(value: string): Date {
