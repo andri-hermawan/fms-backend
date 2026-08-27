@@ -214,6 +214,24 @@ export class EquipmentLogsRepository {
     return result[0] ?? null;
   }
 
+  async findLastStoppedOutside(
+    equipment_id: string,
+    beforeLogId: bigint,
+  ) {
+    const result = await this.prisma.$queryRaw<{ created_at: Date }[]>`
+      SELECT created_at
+      FROM equipment_logs
+      WHERE equipment_id = ${equipment_id}::uuid
+        AND id < ${beforeLogId}
+        AND is_inside = false
+        AND COALESCE(speed, 0) = 0
+      ORDER BY id DESC
+      LIMIT 1;
+    `;
+
+    return result[0] ?? null;
+  }
+
   async findOverSpeedStart(equipment_id: string) {
     const result = await this.prisma.$queryRaw<{ created_at: Date }[]>`
       SELECT created_at
@@ -277,16 +295,6 @@ export class EquipmentLogsRepository {
             FROM equipment_logs
             WHERE equipment_id = ${equipment_id}::uuid
               AND speed > 0
-          ),
-          0
-        )
-        AND id > COALESCE(
-          (
-            SELECT MAX(a.log_id)
-            FROM alerts a
-            WHERE a.equipment_id = ${equipment_id}::uuid
-              AND a.alert_category_id = '5c6e755c-28fb-4058-8180-0e887f98cd5a'::uuid
-              AND a.resolved_at IS NOT NULL
           ),
           0
         )
