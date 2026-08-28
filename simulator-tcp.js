@@ -12,7 +12,7 @@
 
 const net = require('net');
 
-const CLIENT_HOST = '192.168.3.128';
+const CLIENT_HOST = '192.168.3.93';
 const CLIENT_PORT = 5550;
 
 const IMEI = '863719065713472';
