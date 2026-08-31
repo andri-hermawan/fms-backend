@@ -7,6 +7,8 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as bodyParser from 'body-parser';
 import { IoAdapter } from '@nestjs/platform-socket.io';
+import helmet from 'helmet';
+import compression from 'compression';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -15,8 +17,18 @@ async function bootstrap() {
 
   const logger = new Logger('Bootstrap');
 
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  const port = configService.get<number>('port') ?? 3346;
+
   // Setup Socket.IO adapter
   app.useWebSocketAdapter(new IoAdapter(app));
+
+  // Security Headers
+  app.use(helmet());
+
+  // Compression Response
+  app.use(compression());
 
   // Increase Request Body Limit
   app.use(
@@ -50,29 +62,38 @@ async function bootstrap() {
   // Error Response
   app.useGlobalFilters(new HttpExceptionFilter());
 
-  // Swagger
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Fleet Management System API')
-    .setDescription('API Documentation for FMS Enterprise Backend')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
+  // Swagger — hanya aktif di environment non-production
+  if (!isProduction) {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('Fleet Management System API')
+      .setDescription('API Documentation for FMS Enterprise Backend')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
 
-  SwaggerModule.setup('fms/api/docs', app, document);
+    SwaggerModule.setup('fms/api/docs', app, document);
 
-  app.enableCors();
+    logger.log(
+      `📚 Swagger Doc is available on: http://localhost:${port}/fms/api/docs`,
+    );
+  }
 
-  const port = configService.get<number>('port') ?? 3000;
+  // CORS — terbatas ke origin yang diizinkan dari env (CORS_ORIGIN)
+  const corsOrigin = configService.get<string>('corsOrigin');
+  app.enableCors({
+    origin: corsOrigin ? corsOrigin.split(',').map((o) => o.trim()) : false,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  });
+
+  // Graceful Shutdown
+  app.enableShutdownHooks();
 
   await app.listen(port);
 
   logger.log(`🚀 FMS API is running on: http://localhost:${port}/fms/api`);
-
-  logger.log(
-    `📚 Swagger Doc is available on: http://localhost:${port}/fms/api/docs`,
-  );
 }
 
 bootstrap();
