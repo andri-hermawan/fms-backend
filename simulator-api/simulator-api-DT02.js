@@ -14,13 +14,18 @@ const axios = require("axios");
 const BASE_URL =
   "http://localhost:3346/fms/api/equipment-logs";
 
-const BEARER_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFuZHJpLmhlcm1hd2FuQGZtcy5jb20iLCJzdWIiOiIwYjEwNzA1ZS01NDVjLTQ1N2QtODg2Mi01MzM1NjYwMmQ1N2MiLCJyb2xlIjoic3VwZXJhZG1pbiIsImlhdCI6MTc4Nzc5ODQ3MiwiZXhwIjoxNzg3ODg0ODcyfQ.tsFe3DsGKqnPzz6iec5Q20jb1VQDb5M7MC3i3QxjILU";
+const BEARER_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFuZHJpLmhlcm1hd2FuQGZtcy5jb20iLCJzdWIiOiIwYjEwNzA1ZS01NDVjLTQ1N2QtODg2Mi01MzM1NjYwMmQ1N2MiLCJyb2xlIjoic3VwZXJhZG1pbiIsImlhdCI6MTc4Nzg5MDA1MiwiZXhwIjoxNzg3OTc2NDUyfQ.KaheTfxTFSKqvVkJnHryudRJjJz-f_T5fx5No81WxTE";
+// const BEARER_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFuZHJpLmhlcm1hd2FuQGZtcy5jb20iLCJzdWIiOiIwYjEwNzA1ZS01NDVjLTQ1N2QtODg2Mi01MzM1NjYwMmQ1N2MiLCJyb2xlIjoic3VwZXJhZG1pbiIsImlhdCI6MTc4NzkwMDQ5MiwiZXhwIjoxNzg3OTg2ODkyfQ.T0nDza1YfBX_opv7fZoOkt1zFX35BPwysRBf-QNpMy8";
 
 const EQUIPMENT_ID = "e725fc54-dd09-4f85-be6f-9527eaf9d9cf";
 const DEVICE_ID = "941e0390-9f28-4cea-85f2-8fe3e06a30e6";
 
 // 3 detik
 const SEND_INTERVAL = 3000;
+
+// Tanggal hari ini (format yyyy-mm-dd)
+const now = new Date();
+const TODAY = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
 /*==============================================================
 = SCENARIO
@@ -3085,8 +3090,8 @@ function buildBody(item) {
   }
 
   return {
-    created_at: item.created_at,
-    time: new Date(item.time).toISOString(),
+    created_at: `${TODAY} ${item.created_at.split(" ")[1]}`,
+    time: new Date(`${TODAY} ${item.time.split(" ")[1]}`).toISOString(),
 
     equipment_id: EQUIPMENT_ID,
     device_id: DEVICE_ID,
