@@ -41,6 +41,13 @@ lerna-debug.log*
 .env.test.local
 .env.production.local
 .env.local
+.env.production
+.env.staging
+.env.development
+
+# PM2 logs
+logs/
+*.log
 
 # temp directory
 .temp

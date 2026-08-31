@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import * as Joi from 'joi';
+import { ThrottlerModule } from '@nestjs/throttler';
 import configuration from './config/configuration';
 import { DatabaseModule } from './core/database/database.module';
 import { CompaniesModule } from './modules/companies/companies.module';
@@ -30,10 +31,25 @@ import { WeighbridgeModule } from './modules/weighbridge/weighbridge.module';
       isGlobal: true,
       load: [configuration],
       validationSchema: Joi.object({
-        PORT: Joi.number().default(3000),
+        NODE_ENV: Joi.string()
+          .valid('development', 'production', 'test', 'staging')
+          .default('development'),
+        PORT: Joi.number().default(3346),
         DATABASE_URL: Joi.string().required(),
+        JWT_SECRET: Joi.string().min(16).required(),
+        JWT_ACCESS_EXPIRES_IN: Joi.string().default('1d'),
+        JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
+        CORS_ORIGIN: Joi.string().optional(),
+        TELTONIKA_TCP_PORT: Joi.number().default(5550),
       }),
     }),
+    // Rate Limiting: 100 request / menit per IP
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 100,
+      },
+    ]),
     // Core Modules
     WebSocketModule,
     DatabaseModule,

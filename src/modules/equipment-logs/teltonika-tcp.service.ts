@@ -1,4 +1,5 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as net from 'net';
 import { TeltonikaParserService } from './teltonika-parser.service';
 import { EquipmentLogsService } from './equipment-logs.service';
@@ -7,13 +8,19 @@ import { DevicesRepository } from '../devices/repositories/devices.repository';
 @Injectable()
 export class TeltonikaTcpService implements OnModuleInit, OnModuleDestroy {
   private server!: net.Server;
-  private readonly PORT = 5550;
+  private readonly PORT: number;
+  private readonly isProduction: boolean;
+  private readonly logger = new Logger(TeltonikaTcpService.name);
 
   constructor(
     private readonly parserService: TeltonikaParserService,
     private readonly equipmentLogsService: EquipmentLogsService,
     private readonly devicesRepository: DevicesRepository,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.PORT = this.configService.get<number>('teltonikaTcpPort') ?? 5550;
+    this.isProduction = this.configService.get<string>('env') === 'production';
+  }
 
   onModuleInit() {
     this.startServer();
@@ -42,7 +49,7 @@ export class TeltonikaTcpService implements OnModuleInit, OnModuleDestroy {
             // STEP 1 — IMEI HANDSHAKE
             if (!imei) {
               if (buffer.length < 2) {
-                console.log(
+                this.logger.debug(
                   `[TCP] ⏳ Buffer kurang dari 2 bytes (${buffer.length} bytes), menunggu...`,
                 );
                 return;
@@ -50,12 +57,12 @@ export class TeltonikaTcpService implements OnModuleInit, OnModuleDestroy {
 
               const length = buffer.readUInt16BE(0);
               // [X-RAY LOG]: Cek kalkulasi panjang payload
-              // console.log(
+              // this.logger.debug(
               //   `[TCP] 📏 Panjang Payload IMEI (dari 2 byte awal): ${length}`,
               // );
 
               if (buffer.length < 2 + length) {
-                console.log(
+                this.logger.debug(
                   `[TCP] ⏳ Menunggu sisa payload IMEI (Butuh ${2 + length}, baru ada ${buffer.length})...`,
                 );
                 return;
@@ -119,7 +126,7 @@ export class TeltonikaTcpService implements OnModuleInit, OnModuleDestroy {
               // }
 
               if (codecId !== 0x08 && codecId !== 0x8e) {
-                console.error(`[TCP] ❌ Unsupported codec: ${codecId}`);
+                this.logger.error(`[TCP] ❌ Unsupported codec: ${codecId}`);
                 continue;
               }
 
@@ -134,25 +141,27 @@ export class TeltonikaTcpService implements OnModuleInit, OnModuleDestroy {
                   if (recordYear < 2025) {
                     continue;
                   }
-                  // console.log(`------------------------------------------`);
 
-                  console.log(
-                    `[Monitoring Data GPS TRACKER] 
-                      time: ${record.timestamp} (${new Date(record.timestamp).toISOString()}),
-                      latitude: ${record.latitude},
-                      longitude: ${record.longitude}, 
-                      fuel_level: ${record.lls_fuel_level_1 ?? 0}, 
-                      fuel_temperature: ${record.lls_temperature_1 ?? 0}, 
-                      speed: ${record.speed}, 
-                      mileage: ${record.odometer}, 
-                      engine_status: ${record.ignition}, 
-                      gsm_signal: ${record.gsm_signal}, 
-                      gsm_operator: ${record.gsm_operator},
-                      accelerometer_x: ${record.accelerometer_x},
-                      accelerometer_y: ${record.accelerometer_y},
-                      accelerometer_z: ${record.accelerometer_z},
-                      raw_io_ids: ${Object.keys(record.all_params).join(', ')}`,
-                  );
+                  // Log monitoring detail hanya di environment non-production
+                  if (!this.isProduction) {
+                    this.logger.log(
+                      `[Monitoring Data GPS TRACKER] 
+                        time: ${record.timestamp} (${new Date(record.timestamp).toISOString()}),
+                        latitude: ${record.latitude},
+                        longitude: ${record.longitude}, 
+                        fuel_level: ${record.lls_fuel_level_1 ?? 0}, 
+                        fuel_temperature: ${record.lls_temperature_1 ?? 0}, 
+                        speed: ${record.speed}, 
+                        mileage: ${record.odometer}, 
+                        engine_status: ${record.ignition}, 
+                        gsm_signal: ${record.gsm_signal}, 
+                        gsm_operator: ${record.gsm_operator},
+                        accelerometer_x: ${record.accelerometer_x},
+                        accelerometer_y: ${record.accelerometer_y},
+                        accelerometer_z: ${record.accelerometer_z},
+                        raw_io_ids: ${Object.keys(record.all_params).join(', ')}`,
+                    );
+                  }
 
                   // console.log(
                   //   `[GPS] 
@@ -277,7 +286,7 @@ export class TeltonikaTcpService implements OnModuleInit, OnModuleDestroy {
               }
             }
           } catch (error: any) {
-            console.error(
+            this.logger.error(
               `[TCP] ❌ Error Catch Block: ${error.stack || error.message}`,
             );
           }
@@ -285,15 +294,15 @@ export class TeltonikaTcpService implements OnModuleInit, OnModuleDestroy {
       });
 
       socket.on('error', (err) =>
-        console.error(`[TCP] Socket Error: ${err.message}`),
+        this.logger.error(`[TCP] Socket Error: ${err.message}`),
       );
       // socket.on('end', () =>
-      //   console.log(`[TCP] 🔌 Connection Closed: ${imei}`),
+      //   this.logger.debug(`[TCP] 🔌 Connection Closed: ${imei}`),
       // );
     });
 
     this.server.listen(this.PORT, '0.0.0.0', () => {
-      console.log(`🚀 Teltonika TCP Server listening on port ${this.PORT}`);
+      this.logger.log(`🚀 Teltonika TCP Server listening on port ${this.PORT}`);
     });
   }
 }
