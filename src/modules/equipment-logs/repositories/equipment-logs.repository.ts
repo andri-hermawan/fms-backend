@@ -53,7 +53,7 @@ export class EquipmentLogsRepository {
         breakdown,
         created_at
       ) VALUES (
-        ${rest.time}::timestamptz,
+        COALESCE(${rest.time}::timestamptz, NOW()),
         ${rest.equipment_id}::uuid,
         ${rest.device_id}::uuid,
         ST_GeomFromText(${`POINT(${longitude} ${latitude})`}, 4326),
