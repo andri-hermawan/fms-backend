@@ -5,6 +5,112 @@ import { PrismaService } from '../../../core/database/prisma.service';
 export class EquipmentStatusRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  async updateBreakdownByDateAndShift(params: {
+    equipment_id: string;
+    date_at: Date | string;
+    shift?: string;
+    breakdown: boolean;
+  }) {
+    const normalizedDate = this.normalizeDateToDate(params.date_at);
+    if (!normalizedDate) {
+      return { count: 0 };
+    }
+
+    const startOfDay = new Date(normalizedDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(normalizedDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const normalizedShift = typeof params.shift === 'string'
+      ? params.shift.trim()
+      : params.shift;
+
+    return this.prisma.equipment_status.updateMany({
+      where: {
+        equipment_id: params.equipment_id,
+        ...(normalizedShift ? { shift: normalizedShift } : {}),
+        created_at: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
+      },
+      data: {
+        breakdown: params.breakdown,
+        updated_at: new Date(),
+      },
+    });
+  }
+
+  async findByEquipmentId(equipment_id: string) {
+    const result = await this.prisma.$queryRaw<any[]>`
+      SELECT
+        es.equipment_id,
+        es.log_id,
+        es.speed,
+        es.fuel_level,
+        es.fuel_temperature,
+        es.fuel_volume,
+        es.fuel_percentage,
+        es.fuel_difference,
+        es.alert_count,
+        es.engine_status,
+        es.status,
+        es.updated_at,
+        es.is_inside,
+        es.location_category,
+        es.segment,
+        es.vessel,
+        es.mileage,
+        es.vessel_status,
+        es.breakdown,
+        es.gsm_signal,
+        es.shift,
+        ST_Y(es.location::geometry) AS latitude,
+        ST_X(es.location::geometry) AS longitude,
+        e.equipment_code,
+        e.equipment_alias
+      FROM equipment_status es
+      LEFT JOIN equipments e ON e.id = es.equipment_id
+      WHERE es.equipment_id = ${equipment_id}::uuid
+      LIMIT 1
+    `;
+
+    return result[0] ?? null;
+  }
+
+  private normalizeDateToDate(value: Date | string): Date | null {
+    if (!value) return null;
+
+    let date: Date;
+    if (value instanceof Date) {
+      date = new Date(value);
+    } else {
+      const str = value.trim();
+      // Format DD/MM/YYYY atau D/M/YYYY (dengan pemisah / - . )
+      const dmy = str.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
+      if (dmy) {
+        const day = Number(dmy[1]);
+        const month = Number(dmy[2]);
+        const year = Number(dmy[3]);
+        date = new Date(year, month - 1, day);
+      } else {
+        date = new Date(str);
+      }
+    }
+
+    if (Number.isNaN(date.getTime())) return null;
+
+    return new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      12,
+      0,
+      0,
+      0,
+    );
+  }
+
   async upsertStatus(data: any) {
     const { latitude, longitude, ...rest } = data;
 

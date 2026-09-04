@@ -15,6 +15,11 @@ export class CreateBreakdownStatusDto {
   @IsString()
   equipment_code!: string;
 
+  @ApiPropertyOptional({ example: 'class' })
+  @IsOptional()
+  @IsString()
+  class?: string;
+
   @ApiProperty({ example: 'DOWN' })
   @IsString()
   status!: string;

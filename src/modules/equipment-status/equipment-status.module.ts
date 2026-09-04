@@ -6,6 +6,6 @@ import { EquipmentStatusController } from './equipment-status.controller';
 @Module({
   controllers: [EquipmentStatusController],
   providers: [EquipmentStatusService, EquipmentStatusRepository],
-  exports: [EquipmentStatusService], // Di-export agar bisa dipakai di TeltonikaTcpService
+  exports: [EquipmentStatusService, EquipmentStatusRepository],
 })
 export class EquipmentStatusModule {}
