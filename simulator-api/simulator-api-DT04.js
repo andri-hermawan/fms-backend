@@ -14,7 +14,7 @@ const axios = require("axios");
 const BASE_URL =
   "http://localhost:3346/fms/api/equipment-logs";
 
-const BEARER_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFuZHJpLmhlcm1hd2FuQGZtcy5jb20iLCJzdWIiOiIwYjEwNzA1ZS01NDVjLTQ1N2QtODg2Mi01MzM1NjYwMmQ1N2MiLCJyb2xlIjoic3VwZXJhZG1pbiIsImlhdCI6MTc4ODUxNTc5MCwiZXhwIjoxNzg4NjAyMTkwfQ.WTdFwWH2QySJ2LJlv_ei9wrcp829YxJq6g7pYjsY2R8";
+const BEARER_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFuZHJpLmhlcm1hd2FuQGZtcy5jb20iLCJzdWIiOiIwYjEwNzA1ZS01NDVjLTQ1N2QtODg2Mi01MzM1NjYwMmQ1N2MiLCJyb2xlIjoic3VwZXJhZG1pbiIsImlhdCI6MTc4ODU5MDM5NCwiZXhwIjoxNzg4Njc2Nzk0fQ.LJmBB_Z17gx4262wpCWpPVdRGJ5hQB0_PW5-HkFqT3w";
 // const BEARER_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFuZHJpLmhlcm1hd2FuQGZtcy5jb20iLCJzdWIiOiIwYjEwNzA1ZS01NDVjLTQ1N2QtODg2Mi01MzM1NjYwMmQ1N2MiLCJyb2xlIjoic3VwZXJhZG1pbiIsImlhdCI6MTc4NzkwMDQ5MiwiZXhwIjoxNzg3OTg2ODkyfQ.T0nDza1YfBX_opv7fZoOkt1zFX35BPwysRBf-QNpMy8";
 
 const EQUIPMENT_ID = "f070646a-2ff8-416a-bb9f-f5f940ddb4c3";
@@ -266,9 +266,9 @@ const scenario = [
 "latitude": -3.4873246468,
 "longitude": 103.8688686049,
 "fuel_level": 3902.767,
-"speed": 30,
+"speed": 0,
 "mileage": 3100,
-"engine_status": true,
+"engine_status": false,
 "gsm_signal": 1,
 "gsm_operator": 51010,
 },
