@@ -8,6 +8,7 @@ export class FuelsRepository {
 
   async create(data: any) {
     const { latitude, longitude, log_id, ...rest } = data;
+    const createdAt = rest.created_at ? new Date(rest.created_at) : new Date();
 
     // Build location geometry using raw SQL fragment
     const locationWKT = `POINT(${longitude} ${latitude})`;
@@ -41,7 +42,7 @@ export class FuelsRepository {
         ${rest.engine_status !== undefined ? rest.engine_status : null},
         ${rest.status || null},
         ${rest.shift || null},
-        NOW()
+        ${createdAt}
       )
     `;
   }
