@@ -12,6 +12,7 @@ import { DevicesModule } from './modules/devices/devices.module';
 import { EquipmentLogsModule } from './modules/equipment-logs/equipment-logs.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AlertCategoriesModule } from './modules/alert-categories/alert-categories.module';
+import { AttributeGeoModule } from './modules/attribute-geo/attribute-geo.module';
 import { ShiftsModule } from './modules/shifts/shifts.module';
 import { AlertsModule } from './modules/alerts/alerts.module';
 import { GeofencesModule } from './modules/geofences/geofences.module';
@@ -60,6 +61,7 @@ import { WeighbridgeModule } from './modules/weighbridge/weighbridge.module';
     EquipmentsModule,
     DevicesModule,
     AlertCategoriesModule,
+    AttributeGeoModule,
     ShiftsModule,
     EquipmentLogsModule,
     AlertsModule,

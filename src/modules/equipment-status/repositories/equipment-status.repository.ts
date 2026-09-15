@@ -21,9 +21,8 @@ export class EquipmentStatusRepository {
     const endOfDay = new Date(normalizedDate);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const normalizedShift = typeof params.shift === 'string'
-      ? params.shift.trim()
-      : params.shift;
+    const normalizedShift =
+      typeof params.shift === 'string' ? params.shift.trim() : params.shift;
 
     return this.prisma.equipment_status.updateMany({
       where: {
@@ -163,7 +162,7 @@ export class EquipmentStatusRepository {
         ${rest.shift || null},
         ${rest.breakdown ?? null},
         ${rest.gsm_signal ?? null},
-        NOW()
+        ${rest.last_update_at || new Date()}
       )
         ON CONFLICT (equipment_id) DO UPDATE SET
           log_id = EXCLUDED.log_id,
@@ -187,7 +186,7 @@ export class EquipmentStatusRepository {
           shift = EXCLUDED.shift,
           breakdown = EXCLUDED.breakdown,
           gsm_signal = EXCLUDED.gsm_signal,
-          updated_at = NOW();
+          updated_at = EXCLUDED.updated_at;
       `;
   }
 

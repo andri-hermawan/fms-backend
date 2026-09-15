@@ -212,14 +212,32 @@ export class EquipmentLogsService {
 
     // STEP 7.5: Determine current shift based on equipment project & time.
     let shiftName: string | null = null;
+    let operationalCreatedAt = created_at ? new Date(created_at) : currentTime;
     try {
-      const checkedAt = currentTime.toTimeString().slice(0, 5);
+      const checkedAt = currentTime.toLocaleTimeString('en-GB', {
+        timeZone: 'Asia/Jakarta',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
       // this.logger.debug(`checkedAt =${checkedAt}`); 13:09
       const shiftResult = await this.shiftsService.findCurrentByProject(
         equipment.project_id!,
         checkedAt,
       );
-      shiftName = shiftResult.shift?.shift_name ?? null;
+      const currentShift = shiftResult.shift;
+      shiftName = currentShift?.shift_name ?? null;
+
+      if (
+        currentShift?.start_time &&
+        currentShift.end_time &&
+        currentShift.start_time > currentShift.end_time &&
+        checkedAt < currentShift.end_time
+      ) {
+        operationalCreatedAt = new Date(
+          operationalCreatedAt.getTime() - 24 * 60 * 60 * 1000,
+        );
+      }
     } catch {
       shiftName = null;
     }
@@ -248,7 +266,7 @@ export class EquipmentLogsService {
       breakdown: breakdown || false,
       gsm_signal: gsmSignal,
       gsm_operator: gsmOperator,
-      created_at: created_at ? new Date(created_at) : undefined,
+      created_at: operationalCreatedAt,
     });
 
     // this.logger.debug(
@@ -385,7 +403,7 @@ export class EquipmentLogsService {
           vessel_status: savedLog.vessel_status,
           engine_status,
           shift: shiftName,
-          created_at: created_at || undefined,
+          created_at: savedLog.created_at?.toISOString() ?? undefined,
         });
 
         this.wsGateway.emitGeofenceEvent({
@@ -423,7 +441,7 @@ export class EquipmentLogsService {
           vessel_status: savedLog.vessel_status,
           engine_status,
           shift: shiftName,
-          created_at: created_at || undefined,
+          created_at: savedLog.created_at?.toISOString() ?? undefined,
         });
 
         this.wsGateway.emitGeofenceEvent({
@@ -451,7 +469,7 @@ export class EquipmentLogsService {
     if (lastLog) {
       await this.checkFuelAlert(
         dto.equipment_id!,
-        currentTime,
+        savedLogTime,
         lastLog,
         alertInfo,
         savedLog.id,
@@ -460,7 +478,7 @@ export class EquipmentLogsService {
       // First log: record initial fuel level as baseline
       await this.recordInitialFuelLevel(
         dto.equipment_id!,
-        currentTime,
+        savedLogTime,
         alertInfo,
         savedLog.id,
       );
@@ -526,7 +544,7 @@ export class EquipmentLogsService {
         gsm_signal: dto.gsm_signal ?? 0,
         shift: shiftName,
         alert_count: alertCount,
-        last_update_at: currentTime,
+        last_update_at: savedLog.created_at,
       });
 
       // Emit equipment status update via WebSocket
@@ -855,6 +873,7 @@ export class EquipmentLogsService {
         engine_status: info.engine_status,
         status: 'INITIAL',
         shift: info.shift,
+        created_at: currentTime.toISOString(),
       });
 
       // Emit fuel event via WebSocket
@@ -1047,6 +1066,7 @@ export class EquipmentLogsService {
         engine_status: info.engine_status,
         status: eventType,
         shift: info.shift,
+        created_at: currentTime.toISOString(),
       });
 
       // Emit fuel event via WebSocket

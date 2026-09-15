@@ -214,10 +214,7 @@ export class EquipmentLogsRepository {
     return result[0] ?? null;
   }
 
-  async findLastStoppedOutside(
-    equipment_id: string,
-    beforeLogId: bigint,
-  ) {
+  async findLastStoppedOutside(equipment_id: string, beforeLogId: bigint) {
     const result = await this.prisma.$queryRaw<{ created_at: Date }[]>`
       SELECT created_at
       FROM equipment_logs

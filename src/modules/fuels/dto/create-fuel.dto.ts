@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
+  IsDateString,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -18,6 +19,11 @@ export class CreateFuelDto {
   @IsOptional()
   @IsString()
   log_id?: string;
+
+  @ApiPropertyOptional({ example: '2026-08-29T00:04:30.000Z' })
+  @IsOptional()
+  @IsDateString()
+  created_at?: string;
 
   @ApiPropertyOptional({
     example: 75.5,
