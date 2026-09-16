@@ -1,4 +1,6 @@
-git# 🚀 FMS Backend — Fleet Management System API
+# 🚀 FMS Backend — Fleet Management System API
+
+> 📘 Untuk alur lengkap perubahan dari lokal ke server, setup PM2, dan auto-start setelah server reboot, baca [`DEPLOYMENT.md`](./DEPLOYMENT.md).
 
 Backend untuk Fleet Management System (FMS) berbasis **NestJS**, **Prisma ORM**, **PostgreSQL**, dan **Socket.IO**. Menerima data dari GPS tracker **Teltonika** via TCP, memproses log peralatan, status, geofence, fuel calibration, dan mengirim real-time update ke frontend via WebSocket.
 
