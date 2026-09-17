@@ -14,7 +14,7 @@ const axios = require("axios");
 const BASE_URL =
   "http://localhost:3346/fms/api/equipment-logs";
 
-const BEARER_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFuZHJpLmhlcm1hd2FuQGZtcy5jb20iLCJzdWIiOiIwYjEwNzA1ZS01NDVjLTQ1N2QtODg2Mi01MzM1NjYwMmQ1N2MiLCJyb2xlIjoic3VwZXJhZG1pbiIsImlhdCI6MTc4OTU0Mjk4MiwiZXhwIjoxNzg5NjI5MzgyfQ.S4dkJc_nsR7cbOxM8uP-VGQUTmOam1ZBA-EDGGuyPQI";
+const BEARER_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFuZHJpLmhlcm1hd2FuQGZtcy5jb20iLCJzdWIiOiIwYjEwNzA1ZS01NDVjLTQ1N2QtODg2Mi01MzM1NjYwMmQ1N2MiLCJyb2xlIjoic3VwZXJhZG1pbiIsImlhdCI6MTc4OTYzMDYwNiwiZXhwIjoxNzg5NzE3MDA2fQ.jFdr8vLFFfNsz3MNs9QK-jE21EBs2k9xTGwlpDIgWWw";
 // const BEARER_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFuZHJpLmhlcm1hd2FuQGZtcy5jb20iLCJzdWIiOiIwYjEwNzA1ZS01NDVjLTQ1N2QtODg2Mi01MzM1NjYwMmQ1N2MiLCJyb2xlIjoic3VwZXJhZG1pbiIsImlhdCI6MTc4NzkwMDQ5MiwiZXhwIjoxNzg3OTg2ODkyfQ.T0nDza1YfBX_opv7fZoOkt1zFX35BPwysRBf-QNpMy8";
 
 const EQUIPMENT_ID = "f070646a-2ff8-416a-bb9f-f5f940ddb4c3";
@@ -3503,20 +3503,34 @@ const scenarioUpdates = [
   [true, 3063.45, 20], [true, 3060.525, 30], [true, 3057.6, 30], [true, 3054.675, 30],
   [true, 3051.75, 30], [true, 3048.825, 30], [true, 3045.9, 30], [true, 3042.975, 30],
   [true, 3040.05, 30], [true, 3037.125, 30], [true, 3034.2, 30], [true, 3031.275, 30],
-  [true, 3028.35, 30], [true, 3025.425, 20], [true, 3022.5, 10], [false, 0, 0],
-  [false, 0, 0], [false, 0, 0], [false, 0, 0], [false, 0, 0], [false, 0, 0], [false, 0, 0],
-  [false, 0, 0], [false, 0, 0], [false, 0, 0], [false, 0, 0], [false, 0, 0], [false, 0, 0],
-  [true, 0, 0], [true, 2964, 0], [true, 2961.075, 10], [true, 2958.15, 20],
-  [true, 2955.225, 30], [true, 2952.3, 30], [true, 2949.375, 30], [true, 2946.45, 30],
-  [true, 2943.525, 30], [true, 2940.6, 30], [true, 2937.675, 30], [true, 2934.75, 30],
-  [true, 2931.825, 30], [true, 2928.9, 20], [true, 2925.975, 10], [true, 2925, 0],
-  [true, 2919.15, 0], [true, 2913.3, 0], [true, 2907.45, 0], [true, 2901.6, 0],
-  [true, 2895.75, 0], [true, 2889.9, 0], [true, 2884.05, 0], [true, 2878.2, 0],
-  [true, 2872.35, 0], [true, 2866.5, 0], [true, 2865.525, 0], [true, 2864.55, 0],
-  [true, 2861.625, 10], [true, 2858.7, 20], [true, 2855.775, 30], [true, 2852.85, 30],
-  [true, 2849.925, 30], [true, 2847, 30], [true, 2844.075, 30], [true, 2841.15, 30],
-  [true, 2838.225, 30], [true, 2835.3, 30], [true, 2832.375, 30], [true, 2829.45, 20],
-  [true, 2826.525, 10], [true, 2825.55, 0], [true, 2824.575, 0], [false, 0, 0],
+  [true, 3028.35, 30], [true, 3025.425, 20], [true, 3022.5, 10], [false, 3022.5, 0],
+  [false, 3022.5, 0], [false, 3022.5, 0], [false, 3022.5, 0], [false, 3022.5, 0],
+  [false, 3022.5, 0], [false, 3022.5, 0], [false, 3022.5, 0], [false, 3022.5, 0],
+  [false, 3022.5, 0], [false, 3022.5, 0], [false, 3022.5, 0], [false, 3022.5, 0],
+  [true, 3022.5, 0], [true, 2923, 0], [true, 2922.075, 10], [true, 2919.15, 20],
+  [true, 2916.225, 30], [true, 2913.3, 30], [true, 2910.375, 30], [true, 2907.45, 30],
+  [true, 2904.525, 30], [true, 2901.6, 30], [true, 2898.675, 30], [true, 2895.75, 30],
+  [true, 2892.825, 30], [true, 2889.9, 20], [true, 2886.975, 10], [true, 2886, 0],
+  [true, 2866.5, 0], [true, 2847, 0], [true, 2827.5, 0], [true, 2808, 0],
+  [true, 2788.5, 0], [true, 2787.525, 0], [true, 2784.6, 20], [true, 2781.675, 30],
+  [true, 2778.75, 30], [true, 2775.825, 30], [true, 2772.9, 30], [true, 2769.975, 30],
+  [true, 2767.05, 30], [true, 2764.125, 30], [true, 2761.2, 30], [true, 2758.275, 30],
+  [true, 2755.35, 30], [true, 2752.425, 30], [true, 2749.5, 30], [true, 2746.575, 30],
+  [true, 2743.65, 30], [true, 2740.725, 30], [true, 2737.8, 30], [true, 2734.875, 20],
+  [true, 2731.95, 10], [true, 2730.975, 0], [true, 2730, 0], [true, 2729.025, 0],
+  [true, 2728.05, 0], [false, 2728.05, 0], [false, 2728.05, 0], [false, 2728.05, 0],
+  [false, 2728.05, 0], [false, 2728.05, 0], [true, 2728.05, 10], [true, 2630.55, 20],
+  [true, 2627.625, 30], [true, 2624.7, 30], [true, 2621.775, 30], [true, 2618.85, 30],
+  [true, 2615.925, 30], [true, 2613, 30], [true, 2610.075, 30], [true, 2607.15, 30],
+  [true, 2604.225, 30], [true, 2601.3, 20], [true, 2598.375, 30], [true, 2595.45, 30],
+  [true, 2592.525, 30], [true, 2589.6, 30], [true, 2586.675, 30], [true, 2583.75, 30],
+  [true, 2580.825, 30], [true, 2577.9, 20], [true, 2574.975, 10], [true, 2574, 0],
+  [true, 2541.375, 0], [true, 2508.76, 0], [true, 2476.14, 0], [true, 2443.52, 0],
+  [true, 2410.09, 0], [true, 2378.28, 0], [true, 2371.625, 0], [true, 2470.65, 0],
+  [true, 2467.725, 10], [true, 2464.8, 20], [true, 2461.875, 30], [true, 2458.95, 30],
+  [true, 2456.025, 30], [true, 2453.1, 30], [true, 2450.175, 30], [true, 2447.25, 20],
+  [true, 2444.325, 30], [true, 2441.4, 20], [true, 2438.475, 10], [true, 2437.5, 0],
+  [true, 2436.525, 0], [false, 0, 0]
 ];
 
 scenario.splice(scenarioUpdates.length);
@@ -3525,7 +3539,7 @@ scenario.forEach((item, index) => {
   Object.assign(item, { engine_status, fuel_level, speed });
 });
 
-const scenarioStart = new Date("2026-09-16T06:55:00");
+const scenarioStart = new Date("2026-09-17T07:05:00");
 
 function formatTimestamp(date) {
   const pad = (value) => String(value).padStart(2, "0");

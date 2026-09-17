@@ -32,6 +32,7 @@ export class AlertsService {
       created_at_end,
       alert_category_id,
       is_read,
+      shift,
     } = query;
     // console.log('DEBUG findAll query:', JSON.stringify(query));
     // console.log('DEBUG is_read value:', is_read, typeof is_read);
@@ -60,6 +61,9 @@ export class AlertsService {
     }
     if (alert_category_id) {
       where.alert_category_id = alert_category_id;
+    }
+    if (shift) {
+      where.shift = shift;
     }
     if (is_read !== undefined) {
       if (is_read === false) {
@@ -99,13 +103,15 @@ export class AlertsService {
   }
 
   async findAlertSummary(query: QueryAlertDto) {
-    const { search, created_at, created_at_end, alert_category_id } = query;
+    const { search, created_at, created_at_end, alert_category_id, shift } =
+      query;
 
     const rows = await this.repository.findAlertSummary({
       search,
       created_at_start: created_at ? new Date(created_at) : undefined,
       created_at_end: created_at_end ? new Date(created_at_end) : undefined,
       alert_category_id,
+      shift,
     });
 
     return rows.map((item) => ({

@@ -86,9 +86,15 @@ export class AlertsRepository {
     created_at_start?: Date;
     created_at_end?: Date;
     alert_category_id?: string;
+    shift?: string;
   }) {
-    const { search, created_at_start, created_at_end, alert_category_id } =
-      params;
+    const {
+      search,
+      created_at_start,
+      created_at_end,
+      alert_category_id,
+      shift,
+    } = params;
 
     const conditions: Prisma.Sql[] = [];
 
@@ -100,6 +106,10 @@ export class AlertsRepository {
       conditions.push(
         Prisma.sql`a.alert_category_id = ${alert_category_id}::uuid`,
       );
+    }
+
+    if (shift) {
+      conditions.push(Prisma.sql`a.shift = ${shift}`);
     }
 
     if (created_at_start && created_at_end) {

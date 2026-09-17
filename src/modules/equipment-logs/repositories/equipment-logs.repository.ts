@@ -302,6 +302,39 @@ export class EquipmentLogsRepository {
     return result[0] ?? null;
   }
 
+  async findEngineOnStreakStart(equipment_id: string, beforeLogId: bigint) {
+    const result = await this.prisma.$queryRaw<
+      { created_at: Date; fuel_level: number }[]
+    >`
+      SELECT created_at, fuel_level
+      FROM equipment_logs
+      WHERE equipment_id = ${equipment_id}::uuid
+        AND engine_status = true
+        AND id < ${beforeLogId}
+        AND id > COALESCE(
+          (
+            SELECT MAX(id)
+            FROM equipment_logs
+            WHERE equipment_id = ${equipment_id}::uuid
+              AND engine_status = false
+              AND id < ${beforeLogId}
+          ),
+          0
+        )
+        AND EXISTS (
+          SELECT 1
+          FROM equipment_logs
+          WHERE equipment_id = ${equipment_id}::uuid
+            AND engine_status = false
+            AND id < ${beforeLogId}
+        )
+      ORDER BY id ASC
+      LIMIT 1;
+    `;
+
+    return result[0] ?? null;
+  }
+
   async findOne(params: Prisma.equipment_logsFindFirstArgs) {
     return await this.prisma.equipment_logs.findFirst(params);
   }
