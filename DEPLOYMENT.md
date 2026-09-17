@@ -9,6 +9,7 @@ Sebelum mulai mengubah kode, tarik perubahan terbaru. Setelah itu ubah script, c
 ```bash
 git pull origin main
 
+test
 # Ubah source code
 npm run build
 
