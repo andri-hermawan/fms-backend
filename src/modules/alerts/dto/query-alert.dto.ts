@@ -63,6 +63,13 @@ export class QueryAlertDto {
   alert_category_id?: string;
 
   @ApiPropertyOptional({
+    description: 'Filter berdasarkan shift',
+  })
+  @IsOptional()
+  @IsString()
+  shift?: string;
+
+  @ApiPropertyOptional({
     type: [String],
   })
   @IsOptional()

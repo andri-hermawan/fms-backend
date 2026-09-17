@@ -3516,7 +3516,20 @@ const scenarioUpdates = [
   [true, 2861.625, 10], [true, 2858.7, 20], [true, 2855.775, 30], [true, 2852.85, 30],
   [true, 2849.925, 30], [true, 2847, 30], [true, 2844.075, 30], [true, 2841.15, 30],
   [true, 2838.225, 30], [true, 2835.3, 30], [true, 2832.375, 30], [true, 2829.45, 20],
-  [true, 2826.525, 10], [true, 2825.55, 0], [true, 2824.575, 0], [false, 0, 0],
+  [true, 2826.525, 10], [true, 2825.55, 0], [true, 2824.575, 0], [true, 2823.6, 0],
+  [true, 2822.625, 0], [false, 0, 0], [false, 0, 0], [false, 0, 0], [false, 0, 0],
+  [false, 0, 0], [true, 0, 10], [true, 2779.725, 20], [true, 2776.8, 30],
+  [true, 2773.875, 30], [true, 2770.95, 30], [true, 2768.025, 30], [true, 2765.1, 30],
+  [true, 2762.175, 30], [true, 2759.25, 30], [true, 2756.325, 30], [true, 2753.4, 30],
+  [true, 2750.475, 20], [true, 2747.55, 30], [true, 2744.625, 30], [true, 2741.7, 30],
+  [true, 2738.775, 30], [true, 2735.85, 30], [true, 2732.925, 30], [true, 2730, 30],
+  [true, 2727.075, 30], [true, 2724.15, 30], [true, 2721.225, 20], [true, 2718.3, 10],
+  [true, 2708.55, 0], [true, 2698.8, 0], [true, 2689.05, 0], [true, 2679.3, 0],
+  [true, 2669.55, 0], [true, 2659.8, 0], [true, 2656.875, 20], [true, 2653.95, 30],
+  [true, 2651.025, 30], [true, 2648.1, 30], [true, 2645.175, 30], [true, 2642.25, 30],
+  [true, 2639.325, 30], [true, 2636.4, 30], [true, 2633.475, 20], [true, 2630.55, 30],
+  [true, 2627.625, 20], [true, 2624.7, 10], [true, 2623.725, 0], [true, 2622.75, 0],
+  [false, 0, 0],
 ];
 
 scenario.splice(scenarioUpdates.length);
@@ -3525,7 +3538,7 @@ scenario.forEach((item, index) => {
   Object.assign(item, { engine_status, fuel_level, speed });
 });
 
-const scenarioStart = new Date("2026-09-16T06:55:00");
+const scenarioStart = new Date("2026-09-17T07:05:00");
 
 function formatTimestamp(date) {
   const pad = (value) => String(value).padStart(2, "0");
