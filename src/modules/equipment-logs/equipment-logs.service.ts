@@ -959,96 +959,67 @@ export class EquipmentLogsService {
 
       // Calculate fuel difference in liters
       const fuelDifference = currentVolume - previousVolume;
+      const isFiveLiterDecrease = Number(fuelDifference.toFixed(1)) <= -5;
 
       let eventType: string | null = null;
       const FUEL_ALERT_ID = '5c6e755c-28fb-4058-8180-0e887f98cd5a'; //Fuel Decrease Engine On
       const FUEL_ALERT_OFF = 'e2c35eaa-9679-4f09-83be-b95b9ab6a5d7'; //Fuel Decrease Engine Off
+      let alertCategoryId: string | null = null;
+      const wasEngineOff = lastLog.engine_status === false;
+      const isEngineOn = info.engine_status === true;
       let startTime: Date = currentTime;
+      const engineOnStreakStart = isEngineOn
+        ? await this.repository.findEngineOnStreakStart(equipmentId, logId)
+        : null;
       // this.logger.warn(`fuelDifference: ${fuelDifference}`);
-      // STEP 4: Check for FUEL DECREASE or INCREASE
-      // FUEL DECREASE only triggers when speed = 0 (equipment stopped/idle)
-      if (fuelDifference < 0 && Number(info.speed ?? 0) === 0) {
-        // Fuel is decreasing while stopped, find when the stop streak started
-        const stopStart =
-          await this.repository.findStopStreakStart(equipmentId);
+      // Every fuel decrease/increase is recorded as an event.
+      if (fuelDifference < 0) {
+        eventType = 'FUEL DECREASE';
 
-        startTime = stopStart?.created_at
-          ? new Date(String(stopStart.created_at))
-          : currentTime;
+        // Direct decrease after an engine-OFF period: theft while OFF.
+        const isAfterEngineOff =
+          isEngineOn &&
+          (wasEngineOff || engineOnStreakStart?.fuel_level !== undefined);
+        if (isAfterEngineOff && isFiveLiterDecrease) {
+          alertCategoryId = FUEL_ALERT_OFF;
+          // ON + stopped: use cumulative 5-liter and 2-minute thresholds.
+        } else if (isEngineOn && Number(info.speed ?? 0) === 0) {
+          const stopStart =
+            await this.repository.findStopStreakStart(equipmentId);
+          startTime = stopStart?.created_at
+            ? new Date(String(stopStart.created_at))
+            : currentTime;
+          const deltaTimeMinutes =
+            (currentTime.getTime() - startTime.getTime()) / (1000 * 60);
+          let startVolume = previousVolume;
 
-        const deltaTimeMinutes =
-          (currentTime.getTime() - startTime.getTime()) / (1000 * 60);
+          if (
+            stopStart?.fuel_level !== undefined &&
+            stopStart.fuel_level !== null
+          ) {
+            try {
+              const startCalibration =
+                await this.fuelCalibrationsService.lookupVolume(
+                  equipmentId,
+                  Number(stopStart.fuel_level),
+                );
+              startVolume = Number(startCalibration.volume);
+            } catch {
+              // Keep previousVolume when the streak baseline cannot be calibrated.
+            }
+          }
 
-        // Calculate cumulative fuel difference from start of stop streak
-        let startVolume = previousVolume;
-        if (
-          stopStart?.fuel_level !== undefined &&
-          stopStart.fuel_level !== null
-        ) {
-          try {
-            const startCalibration =
-              await this.fuelCalibrationsService.lookupVolume(
-                equipmentId,
-                Number(stopStart.fuel_level),
-              );
-            startVolume = Number(startCalibration.volume);
-          } catch {
-            // fallback to previousVolume
+          const cumulativeDiff = currentVolume - startVolume;
+          const isFiveLiterCumulativeDecrease =
+            Number(cumulativeDiff.toFixed(1)) <= -5;
+          if (isFiveLiterCumulativeDecrease && deltaTimeMinutes >= 2) {
+            alertCategoryId = FUEL_ALERT_ID;
           }
         }
-        const cumulativeDiff = currentVolume - startVolume;
-
-        // this.logger.debug(
-        //   `[Fuel Alert] equipment=${equipmentId} cumulativeDiff=${cumulativeDiff.toFixed(2)}L ` +
-        //     `deltaTime=${deltaTimeMinutes.toFixed(2)}m (from ${startTime.toISOString()})`,
-        // );
-
-        // this.logger.warn(`[Fuel Alert] ═══ FUEL STREAK TRACE ═══`);
-        // this.logger.warn(
-        //   `[Fuel Alert] equipment=${equipmentId} ` +
-        //     `currentTime=${currentTime.toISOString()} ` +
-        //     `speed=${info.speed ?? 0} ` +
-        //     `currentFuelLevel=${info.fuel_level} ` +
-        //     `currentVolume=${currentVolume.toFixed(2)}L`,
-        // );
-        // this.logger.warn(
-        //   `[Fuel Alert] lastLog fuel_level=${lastLog.fuel_level} ` +
-        //     `previousVolume=${previousVolume.toFixed(2)}L ` +
-        //     `perStepDiff=${fuelDifference.toFixed(2)}L`,
-        // );
-        // this.logger.warn(
-        //   `[Fuel Alert] stopStart found=${!!stopStart} ` +
-        //     `stopStart.fuel_level=${stopStart?.fuel_level ?? 'N/A'} ` +
-        //     `stopStart.created_at=${stopStart?.created_at ?? 'N/A'}`,
-        // );
-        // this.logger.warn(
-        //   `[Fuel Alert] startTime=${startTime.toISOString()} ` +
-        //     `deltaTimeMinutes=${deltaTimeMinutes.toFixed(2)}m`,
-        // );
-        // this.logger.warn(
-        //   `[Fuel Alert] startVolume=${startVolume.toFixed(2)}L ` +
-        //     `currentVolume=${currentVolume.toFixed(2)}L ` +
-        //     `cumulativeDiff=${cumulativeDiff.toFixed(2)}L`,
-        // );
-
-        // Check if cumulative decrease >= 5L and streak has lasted at least 2 minutes
-        if (cumulativeDiff <= -5.0 && deltaTimeMinutes >= 2) {
-          eventType = 'FUEL DECREASE';
-        }
-      } else if (fuelDifference >= 5.0) {
-        // Fuel is increasing (refueling)
-        const deltaTimeMinutes =
-          (currentTime.getTime() - new Date(String(lastLog.time)).getTime()) /
-          (1000 * 60);
-
-        // this.logger.debug(
-        //   `[Fuel Alert] equipment=${equipmentId} deltaFuel=${deltaFuel} fuelDifference=${fuelDifference.toFixed(2)}L ` +
-        //     `deltaTime=${deltaTimeMinutes.toFixed(2)}m`,
-        // );
-
-        if (deltaTimeMinutes <= 5) {
-          eventType = 'FUEL INCREASE';
-        }
+      } else if (fuelDifference > 0) {
+        eventType = 'FUEL INCREASE';
+      } else {
+        eventType = 'FUEL NO CHANGE';
       }
 
       if (!eventType) {
@@ -1102,12 +1073,16 @@ export class EquipmentLogsService {
       //   `[Fuel Alert] ${eventType} logged for ${info.equipment_code}: ${Math.abs(fuelDifference).toFixed(2)}L`,
       // );
 
-      // STEP 6: Create alert if event is FUEL DECREASE (with duplicate check)
-      if (eventType === 'FUEL DECREASE') {
+      // STEP 6: Create alert only after the engine ON/OFF threshold is reached.
+      if (eventType === 'FUEL DECREASE' && alertCategoryId) {
+        const alertStatus =
+          alertCategoryId === FUEL_ALERT_OFF
+            ? 'Fuel Decrease Engine Off'
+            : 'Fuel Decrease Engine On';
         const existingAlert = await this.alertRepo.findOne({
           where: {
             equipment_id: equipmentId,
-            alert_category_id: FUEL_ALERT_ID,
+            alert_category_id: alertCategoryId,
             created_at: startTime,
           },
         });
@@ -1121,8 +1096,8 @@ export class EquipmentLogsService {
             ...this.mapInfoToDto(
               equipmentId,
               logId,
-              FUEL_ALERT_ID,
-              eventType,
+              alertCategoryId,
+              alertStatus,
               startTime,
               info,
             ),
@@ -1134,7 +1109,7 @@ export class EquipmentLogsService {
           this.wsGateway.emitNewAlert({
             equipment_id: equipmentId,
             equipment_code: info.equipment_code,
-            alert_category_id: FUEL_ALERT_ID,
+            alert_category_id: alertCategoryId,
             alert_type: eventType,
             status: eventType,
             fuel_level: info.fuel_level,
