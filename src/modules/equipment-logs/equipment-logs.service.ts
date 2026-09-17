@@ -242,17 +242,30 @@ export class EquipmentLogsService {
       shiftName = null;
     }
 
+    const useLastFuel = Number(fuel_level) === -4 || Number(fuel_level) === 0;
+    const savedFuelLevel = useLastFuel ? lastLog?.fuel_level : fuel_level;
+    const savedFuelVolume = useLastFuel ? lastLog?.fuel_volume : fuelVolume;
+    const savedFuelPercentage = useLastFuel
+      ? lastLog?.fuel_percentage
+      : fuelPercentage;
+    const savedFuelDifference = useLastFuel
+      ? lastLog?.fuel_difference
+      : fuelDifference;
+    const savedFuelTemperature = useLastFuel
+      ? lastLog?.fuel_temperature
+      : fuel_temperature;
+
     // STEP 8: Persist the normalized telemetry and calculated status.
     const savedLog = await this.repository.create({
       ...rest,
       equipment_id: dto.equipment_id,
       shift: shiftName,
       speed: speed || 0,
-      fuel_level: fuel_level,
-      fuel_volume: fuelVolume,
-      fuel_percentage: fuelPercentage,
-      fuel_difference: fuelDifference,
-      fuel_temperature: fuel_temperature,
+      fuel_level: savedFuelLevel,
+      fuel_volume: savedFuelVolume,
+      fuel_percentage: savedFuelPercentage,
+      fuel_difference: savedFuelDifference,
+      fuel_temperature: savedFuelTemperature,
       engine_status: engine_status || false,
       latitude,
       longitude,
@@ -948,7 +961,8 @@ export class EquipmentLogsService {
       const fuelDifference = currentVolume - previousVolume;
 
       let eventType: string | null = null;
-      const FUEL_ALERT_ID = '5c6e755c-28fb-4058-8180-0e887f98cd5a';
+      const FUEL_ALERT_ID = '5c6e755c-28fb-4058-8180-0e887f98cd5a'; //Fuel Decrease Engine On
+      const FUEL_ALERT_OFF = 'e2c35eaa-9679-4f09-83be-b95b9ab6a5d7'; //Fuel Decrease Engine Off
       let startTime: Date = currentTime;
       // this.logger.warn(`fuelDifference: ${fuelDifference}`);
       // STEP 4: Check for FUEL DECREASE or INCREASE
@@ -1017,11 +1031,11 @@ export class EquipmentLogsService {
         //     `cumulativeDiff=${cumulativeDiff.toFixed(2)}L`,
         // );
 
-        // Check if cumulative decrease >= 3L and streak has lasted at least 5 minutes
-        if (cumulativeDiff <= -3.0 && deltaTimeMinutes >= 5) {
+        // Check if cumulative decrease >= 5L and streak has lasted at least 2 minutes
+        if (cumulativeDiff <= -5.0 && deltaTimeMinutes >= 2) {
           eventType = 'FUEL DECREASE';
         }
-      } else if (fuelDifference >= 3.0) {
+      } else if (fuelDifference >= 5.0) {
         // Fuel is increasing (refueling)
         const deltaTimeMinutes =
           (currentTime.getTime() - new Date(String(lastLog.time)).getTime()) /
