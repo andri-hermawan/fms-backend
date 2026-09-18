@@ -926,12 +926,21 @@ export class EquipmentLogsService {
       // const deltaFuel = info.fuel_level - lastLog.fuel_level;
 
       // STEP 2: Lookup current fuel volume using calibration API
+      const useLastFuel = Number(info.fuel_level) === -4 || Number(info.fuel_level) === 0;
+      const currentFuelLevel = useLastFuel
+        ? lastLog.fuel_level
+        : info.fuel_level;
       let currentCalibration: any;
       try {
-        currentCalibration = await this.fuelCalibrationsService.lookupVolume(
-          equipmentId,
-          Number(info.fuel_level),
-        );
+        currentCalibration = useLastFuel
+          ? {
+              volume: lastLog.fuel_volume,
+              percentage: lastLog.fuel_percentage,
+            }
+          : await this.fuelCalibrationsService.lookupVolume(
+              equipmentId,
+              Number(currentFuelLevel),
+            );
       } catch {
         this.logger.warn(
           `[Fuel Alert] No calibration data for equipment ${equipmentId}`,
@@ -968,18 +977,13 @@ export class EquipmentLogsService {
       const wasEngineOff = lastLog.engine_status === false;
       const isEngineOn = info.engine_status === true;
       let startTime: Date = currentTime;
-      const engineOnStreakStart = isEngineOn
-        ? await this.repository.findEngineOnStreakStart(equipmentId, logId)
-        : null;
       // this.logger.warn(`fuelDifference: ${fuelDifference}`);
       // Every fuel decrease/increase is recorded as an event.
       if (fuelDifference < 0) {
         eventType = 'FUEL DECREASE';
 
         // Direct decrease after an engine-OFF period: theft while OFF.
-        const isAfterEngineOff =
-          isEngineOn &&
-          (wasEngineOff || engineOnStreakStart?.fuel_level !== undefined);
+        const isAfterEngineOff = isEngineOn && wasEngineOff;
         if (isAfterEngineOff && isFiveLiterDecrease) {
           alertCategoryId = FUEL_ALERT_OFF;
           // ON + stopped: use cumulative 5-liter and 2-minute thresholds.
@@ -1092,6 +1096,16 @@ export class EquipmentLogsService {
             resolved_at: currentTime,
           });
         } else {
+          const alertInfo =
+            alertCategoryId === FUEL_ALERT_OFF
+              ? {
+                  ...info,
+                  fuel_level: currentFuelLevel,
+                  fuel_volume: currentVolume,
+                  fuel_percentage: currentPercentage,
+                  fuel_difference: fuelDifference,
+                }
+              : info;
           await this.alertsService.create({
             ...this.mapInfoToDto(
               equipmentId,
@@ -1099,7 +1113,7 @@ export class EquipmentLogsService {
               alertCategoryId,
               alertStatus,
               startTime,
-              info,
+              alertInfo,
             ),
             resolved_at: currentTime,
           });
@@ -1112,7 +1126,7 @@ export class EquipmentLogsService {
             alert_category_id: alertCategoryId,
             alert_type: eventType,
             status: eventType,
-            fuel_level: info.fuel_level,
+            fuel_level: currentFuelLevel,
             fuel_volume: currentVolume,
             fuel_difference: fuelDifference,
             longitude: info.longitude,
