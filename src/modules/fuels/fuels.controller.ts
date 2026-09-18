@@ -16,6 +16,7 @@ import { FuelsService } from './fuels.service';
 import { CreateFuelDto } from './dto/create-fuel.dto';
 import { QueryFuelDto } from './dto/query-fuel.dto';
 import { UpdateFuelDto } from './dto/update-fuel.dto';
+import { QueryFuelFilterDto } from './dto/query-fuel-filter.dto';
 
 @ApiTags('Fuels')
 @ApiBearerAuth()
@@ -42,6 +43,15 @@ export class FuelsController {
   })
   findAll(@Query() query: QueryFuelDto) {
     return this.service.findAll(query);
+  }
+
+  @Get('filter')
+  @ApiOperation({
+    summary:
+      'Mengambil daftar fuel dengan filter start_date, end_date, equipment_code, dan shift',
+  })
+  findByFilter(@Query() query: QueryFuelFilterDto) {
+    return this.service.findByFilter(query);
   }
 
   @Get(':id')
