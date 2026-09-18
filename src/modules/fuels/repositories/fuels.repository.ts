@@ -65,6 +65,24 @@ export class FuelsRepository {
     ]);
   }
 
+  async findByFilter(params: {
+    skip: number;
+    take: number;
+    where: Prisma.fuelsWhereInput;
+  }) {
+    const { skip, take, where } = params;
+    return await this.prisma.$transaction([
+      this.prisma.fuels.count({ where }),
+      this.prisma.fuels.findMany({
+        skip,
+        take,
+        where,
+        orderBy: { created_at: 'desc' },
+        include: { equipments: { select: { equipment_code: true } } },
+      }),
+    ]);
+  }
+
   async findById(id: bigint): Promise<fuels | null> {
     return await this.prisma.fuels.findUnique({
       where: { id },
