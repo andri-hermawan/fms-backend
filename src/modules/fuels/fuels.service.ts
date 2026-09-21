@@ -43,7 +43,7 @@ export class FuelsService {
         total,
         page: Number(page),
         limit: Number(limit),
-        totalPages: Math.ceil(total / Number(limit)),
+        totalPages: Math.ceil(Number(total) / Number(limit)),
       },
     };
   }
@@ -100,7 +100,7 @@ export class FuelsService {
         total,
         page: Number(page),
         limit: Number(limit),
-        totalPages: Math.ceil(total / Number(limit)),
+        totalPages: Math.ceil(Number(total) / Number(limit)),
       },
     };
   }
