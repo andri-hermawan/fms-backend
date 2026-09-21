@@ -53,7 +53,7 @@ export class FuelsRepository {
     where?: Prisma.fuelsWhereInput;
   }) {
     const { skip, take, where } = params;
-    return await this.prisma.$transaction([
+    const [total, rows] = await this.prisma.$transaction([
       this.prisma.fuels.count({ where }),
       this.prisma.fuels.findMany({
         skip,
@@ -63,6 +63,35 @@ export class FuelsRepository {
         include: { equipments: { select: { equipment_code: true } } },
       }),
     ]);
+
+    // Ekstrak latitude & longitude dari kolom geometry (PostGIS)
+    const ids = rows.map((r) => r.id);
+    const coords: {
+      id: bigint;
+      latitude: number | null;
+      longitude: number | null;
+    }[] =
+      ids.length > 0
+        ? await this.prisma.$queryRaw`
+            SELECT id, ST_Y(location) AS latitude, ST_X(location) AS longitude
+            FROM fuels
+            WHERE id IN (${Prisma.join(ids)})
+          `
+        : [];
+
+    const coordMap = new Map(
+      coords.map((c) => [
+        c.id,
+        { latitude: c.latitude, longitude: c.longitude },
+      ]),
+    );
+
+    const data = rows.map((row) => ({
+      ...row,
+      ...(coordMap.get(row.id) ?? { latitude: null, longitude: null }),
+    }));
+
+    return [total, data];
   }
 
   async findByFilter(params: {
@@ -71,16 +100,45 @@ export class FuelsRepository {
     where: Prisma.fuelsWhereInput;
   }) {
     const { skip, take, where } = params;
-    return await this.prisma.$transaction([
+    const [total, rows] = await this.prisma.$transaction([
       this.prisma.fuels.count({ where }),
       this.prisma.fuels.findMany({
         skip,
         take,
         where,
-        orderBy: { created_at: 'desc' },
+        orderBy: { created_at: 'asc' },
         include: { equipments: { select: { equipment_code: true } } },
       }),
     ]);
+
+    // Ekstrak latitude & longitude dari kolom geometry (PostGIS)
+    const ids = rows.map((r) => r.id);
+    const coords: {
+      id: bigint;
+      latitude: number | null;
+      longitude: number | null;
+    }[] =
+      ids.length > 0
+        ? await this.prisma.$queryRaw`
+            SELECT id, ST_Y(location) AS latitude, ST_X(location) AS longitude
+            FROM fuels
+            WHERE id IN (${Prisma.join(ids)})
+          `
+        : [];
+
+    const coordMap = new Map(
+      coords.map((c) => [
+        c.id,
+        { latitude: c.latitude, longitude: c.longitude },
+      ]),
+    );
+
+    const data = rows.map((row) => ({
+      ...row,
+      ...(coordMap.get(row.id) ?? { latitude: null, longitude: null }),
+    }));
+
+    return [total, data];
   }
 
   async findById(id: bigint): Promise<fuels | null> {

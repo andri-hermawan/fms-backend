@@ -74,6 +74,7 @@ export class GeofencesService {
       limit = 10,
       equipment_code,
       segment,
+      shift,
       start_date,
       end_date,
     } = query;
@@ -86,6 +87,7 @@ export class GeofencesService {
       take: limitNumber,
       equipment_code,
       segment,
+      shift,
       start_date: start_date ? new Date(start_date) : undefined,
       end_date: end_date ? new Date(end_date) : undefined,
     });
@@ -108,11 +110,12 @@ export class GeofencesService {
   }
 
   async getPassingSummary(query: QueryGeofenceDto) {
-    const { equipment_code, segment, start_date, end_date } = query;
+    const { equipment_code, segment, shift, start_date, end_date } = query;
 
     const rows = await this.repository.getPassingSummary({
       equipment_code,
       segment,
+      shift,
       start_date: start_date ? new Date(start_date) : undefined,
       end_date: end_date ? new Date(end_date) : undefined,
     });

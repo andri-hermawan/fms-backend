@@ -81,4 +81,12 @@ export class QueryGeofenceDto {
   @IsOptional()
   @IsDateString()
   end_date?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shift',
+    example: 'SHIFT 1',
+  })
+  @IsOptional()
+  @IsString()
+  shift?: string;
 }

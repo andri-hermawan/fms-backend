@@ -105,6 +105,7 @@ export class GeofencesRepository {
     take?: number;
     equipment_code?: string;
     segment?: string;
+    shift?: string;
     start_date?: Date;
     end_date?: Date;
   }): Promise<
@@ -124,6 +125,7 @@ export class GeofencesRepository {
       take = 10,
       equipment_code,
       segment,
+      shift,
       start_date,
       end_date,
     } = params;
@@ -140,6 +142,10 @@ export class GeofencesRepository {
       conditions.push(
         Prisma.sql`g.segment = ${decodeURIComponent(segment).trim()}`,
       );
+    }
+
+    if (shift) {
+      conditions.push(Prisma.sql`g.shift = ${shift}`);
     }
 
     if (start_date) {
@@ -199,10 +205,11 @@ export class GeofencesRepository {
   async getPassingSummary(params: {
     equipment_code?: string;
     segment?: string;
+    shift?: string;
     start_date?: Date;
     end_date?: Date;
   }) {
-    const { equipment_code, segment, start_date, end_date } = params;
+    const { equipment_code, segment, shift, start_date, end_date } = params;
 
     const conditions: Prisma.Sql[] = [Prisma.sql`g.orig_fid = 0`];
 
@@ -216,6 +223,10 @@ export class GeofencesRepository {
       conditions.push(
         Prisma.sql`g.segment = ${decodeURIComponent(segment).trim()}`,
       );
+    }
+
+    if (shift) {
+      conditions.push(Prisma.sql`g.shift = ${shift}`);
     }
 
     if (start_date) {
