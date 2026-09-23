@@ -292,6 +292,8 @@ export class EquipmentLogsService {
     // );
 
     // STEP 9: Push the latest status to the equipment snapshot.
+    // Fuel values are read from savedLog so the snapshot always matches the
+    // persisted log, including the useLastFuel fallback and null handling.
     await this.updateSnapshot(
       dto,
       savedLog,
@@ -302,9 +304,6 @@ export class EquipmentLogsService {
       currentVesselStatus,
       currentTime,
       equipment?.equipment_code ?? undefined,
-      fuelVolume,
-      fuelPercentage,
-      fuelDifference,
       shiftName,
     );
 
@@ -316,9 +315,11 @@ export class EquipmentLogsService {
       latitude,
       longitude,
       speed: speed || 0,
-      fuel_level: fuel_level || 0,
-      fuel_volume: fuelVolume,
-      fuel_percentage: fuelPercentage,
+      fuel_level: savedLog.fuel_level,
+      fuel_volume: savedLog.fuel_volume,
+      fuel_percentage: savedLog.fuel_percentage,
+      fuel_difference: savedLog.fuel_difference,
+      fuel_temperature: savedLog.fuel_temperature,
       engine_status: engine_status || false,
       status: opStatus,
       segment: segmentName,
@@ -328,6 +329,7 @@ export class EquipmentLogsService {
       time: savedLog.created_at,
     });
 
+    // Mirror the persisted log so alerts and fuel checks share one source of truth.
     const alertInfo = {
       is_inside: isInside,
       equipment_code: equipment?.equipment_code || 'N/A',
@@ -339,11 +341,11 @@ export class EquipmentLogsService {
       longitude,
       latitude,
       speed: speed || 0,
-      fuel_level: fuel_level || 0,
-      fuel_volume: fuelVolume,
-      fuel_percentage: fuelPercentage,
-      fuel_difference: fuelDifference,
-      fuel_temperature: fuel_temperature,
+      fuel_level: savedLog.fuel_level,
+      fuel_volume: savedLog.fuel_volume,
+      fuel_percentage: savedLog.fuel_percentage,
+      fuel_difference: savedLog.fuel_difference,
+      fuel_temperature: savedLog.fuel_temperature,
       engine_status: engine_status || false,
       mileage: dto.mileage,
       vessel_status: currentVesselStatus,
@@ -510,9 +512,6 @@ export class EquipmentLogsService {
     currentVesselStatus: string,
     currentTime: Date,
     equipmentCode?: string,
-    fuelVolume?: number,
-    fuelPercentage?: number,
-    fuelDifference?: number,
     shiftName?: string | null,
   ) {
     try {
@@ -544,11 +543,11 @@ export class EquipmentLogsService {
         is_inside: isInside,
         orig_fid: origFid,
         speed: savedLog.speed,
-        fuel_level: dto.fuel_level ?? 0,
-        fuel_temperature: dto.fuel_temperature ?? 0,
-        fuel_volume: fuelVolume ?? 0,
-        fuel_percentage: fuelPercentage ?? 0,
-        fuel_difference: fuelDifference ?? 0,
+        fuel_level: savedLog.fuel_level,
+        fuel_temperature: savedLog.fuel_temperature,
+        fuel_volume: savedLog.fuel_volume,
+        fuel_percentage: savedLog.fuel_percentage,
+        fuel_difference: savedLog.fuel_difference,
         vessel: dto.vessel ?? 0,
         mileage: dto.mileage ?? 0,
         vessel_status: currentVesselStatus,
@@ -572,11 +571,11 @@ export class EquipmentLogsService {
         is_inside: isInside,
         orig_fid: origFid,
         speed: savedLog.speed,
-        fuel_level: dto.fuel_level ?? 0,
-        fuel_volume: fuelVolume ?? 0,
-        fuel_percentage: fuelPercentage ?? 0,
-        fuel_difference: fuelDifference ?? 0,
-        fuel_temperature: dto.fuel_temperature ?? 0,
+        fuel_level: savedLog.fuel_level,
+        fuel_volume: savedLog.fuel_volume,
+        fuel_percentage: savedLog.fuel_percentage,
+        fuel_difference: savedLog.fuel_difference,
+        fuel_temperature: savedLog.fuel_temperature,
         vessel: dto.vessel ?? 0,
         mileage: dto.mileage ?? 0,
         vessel_status: currentVesselStatus,
