@@ -167,6 +167,116 @@ export class AlertsRepository {
   `;
   }
 
+  async findSummaryByDateShift(params: {
+    date: string;
+    shift: string;
+  }): Promise<
+    {
+      title: string;
+      vessel_status: string;
+      events: bigint;
+      dt: bigint;
+    }[]
+  > {
+    const { date, shift } = params;
+
+    return await this.prisma.$queryRaw`
+      SELECT
+        f.alert_category_name AS title,
+        COALESCE(NULLIF(LOWER(a.vessel_status), ''), 'unknown') AS vessel_status,
+        COUNT(a.id)::bigint AS events,
+        COUNT(DISTINCT a.equipment_id)::bigint AS dt
+      FROM alerts a
+      LEFT JOIN alert_categories f
+        ON f.id = a.alert_category_id
+      WHERE a.created_at::date = ${date}::date
+        AND a.shift = ${shift}
+      GROUP BY
+        f.alert_category_name,
+        COALESCE(NULLIF(LOWER(a.vessel_status), ''), 'unknown')
+      ORDER BY
+        f.alert_category_name,
+        COALESCE(NULLIF(LOWER(a.vessel_status), ''), 'unknown')
+    `;
+  }
+
+  async findShiftStartHour(shift: string): Promise<number | null> {
+    const rows = await this.prisma.$queryRaw<{ start_hour: number }[]>`
+      SELECT EXTRACT(HOUR FROM start_time)::int AS start_hour
+      FROM shifts
+      WHERE LOWER(shift_name) = LOWER(${shift})
+      ORDER BY sequence
+      LIMIT 1
+    `;
+    return rows.length > 0 ? Number(rows[0].start_hour) : null;
+  }
+
+  async findAbnormalHourly(params: { date: string; shift: string }): Promise<
+    {
+      category: string;
+      hour: number;
+      events: bigint;
+      equipment_count: bigint;
+    }[]
+  > {
+    const { date, shift } = params;
+
+    return await this.prisma.$queryRaw`
+      SELECT
+        CASE
+          WHEN f.alert_category_name ILIKE 'fuel decrease%' THEN 'Fuel Decrease'
+          ELSE f.alert_category_name
+        END AS category,
+        EXTRACT(HOUR FROM a.created_at)::int AS hour,
+        COUNT(a.id)::bigint AS events,
+        COUNT(DISTINCT a.equipment_id)::bigint AS equipment_count
+      FROM alerts a
+      LEFT JOIN alert_categories f
+        ON f.id = a.alert_category_id
+      WHERE a.created_at::date = ${date}::date
+        AND a.shift = ${shift}
+        AND f.alert_category_name IS NOT NULL
+      GROUP BY 1, 2
+    `;
+  }
+
+  async findAbnormalBySegment(params: { date: string; shift: string }): Promise<
+    {
+      segment: string;
+      category: string;
+      events: bigint;
+    }[]
+  > {
+    const { date, shift } = params;
+
+    return await this.prisma.$queryRaw`
+      SELECT
+        COALESCE(NULLIF(TRIM(a.segment), ''), 'Unknown') AS segment,
+        CASE
+          WHEN f.alert_category_name ILIKE 'fuel decrease%' THEN 'Fuel Decrease'
+          ELSE f.alert_category_name
+        END AS category,
+        COUNT(a.id)::bigint AS events
+      FROM alerts a
+      LEFT JOIN alert_categories f
+        ON f.id = a.alert_category_id
+      WHERE a.created_at::date = ${date}::date
+        AND a.shift = ${shift}
+        AND f.alert_category_name IS NOT NULL
+      GROUP BY 1, 2
+    `;
+  }
+
+  async findAttributeGeoSegments(): Promise<{ segment: string }[]> {
+    return await this.prisma.$queryRaw`
+      SELECT DISTINCT segment
+      FROM attribute_geo
+      WHERE segment IS NOT NULL
+        AND TRIM(segment) <> ''
+      ORDER BY segment
+    `;
+  }
+
   async findById(id: bigint): Promise<alerts | null> {
     return await this.prisma.alerts.findUnique({
       where: { id },
