@@ -925,7 +925,8 @@ export class EquipmentLogsService {
       // const deltaFuel = info.fuel_level - lastLog.fuel_level;
 
       // STEP 2: Lookup current fuel volume using calibration API
-      const useLastFuel = Number(info.fuel_level) === -4 || Number(info.fuel_level) === 0;
+      const useLastFuel =
+        Number(info.fuel_level) === -4 || Number(info.fuel_level) === 0;
       const currentFuelLevel = useLastFuel
         ? lastLog.fuel_level
         : info.fuel_level;
