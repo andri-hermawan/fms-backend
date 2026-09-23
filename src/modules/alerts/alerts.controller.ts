@@ -16,6 +16,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../../core/decorators/get-user.decorator';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UpdateAlertDto } from './dto/update-alert.dto';
+import { AlertSummaryDto } from './dto/alert-summary.dto';
 
 @ApiTags('Alerts')
 @ApiBearerAuth()
@@ -47,6 +48,23 @@ export class AlertsController {
   @Get('summary_by_category')
   async findAlertSummary(@Query() query: QueryAlertDto) {
     return this.service.findAlertSummary(query);
+  }
+
+  @Get('summary_by_date_shift')
+  @ApiOperation({
+    summary: 'Ringkasan alert per kategori berdasarkan tanggal & shift',
+  })
+  findSummaryByDateShift(@Query() query: AlertSummaryDto) {
+    return this.service.findSummaryByDateShift(query.date, query.shift);
+  }
+
+  @Get('abnormal_activity')
+  @ApiOperation({
+    summary:
+      'Aktivitas abnormal per jam & per segmen berdasarkan tanggal & shift',
+  })
+  findAbnormalActivity(@Query() query: AlertSummaryDto) {
+    return this.service.findAbnormalActivity(query.date, query.shift);
   }
 
   @Get(':id')
