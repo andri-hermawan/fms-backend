@@ -9,6 +9,6 @@ import { EquipmentStatusModule } from '../equipment-status/equipment-status.modu
   imports: [EquipmentsModule, EquipmentStatusModule],
   controllers: [SettingOperatorController],
   providers: [SettingOperatorService, SettingOperatorRepository],
-  exports: [SettingOperatorService],
+  exports: [SettingOperatorService, SettingOperatorRepository],
 })
 export class SettingOperatorModule {}

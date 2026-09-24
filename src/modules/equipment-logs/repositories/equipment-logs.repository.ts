@@ -50,6 +50,7 @@ export class EquipmentLogsRepository {
         status,
         shift,
         breakdown,
+        operator_name,
         created_at
       ) VALUES (
         COALESCE(${rest.time}::timestamptz, NOW()),
@@ -91,6 +92,7 @@ export class EquipmentLogsRepository {
         ${rest.status},
         ${rest.shift || null},
         ${rest.breakdown ?? null},
+        ${rest.operator_name || null},
         COALESCE(${rest.created_at}::timestamptz, NOW())
       )
       RETURNING
@@ -136,6 +138,7 @@ export class EquipmentLogsRepository {
       status,
       shift,
       breakdown,
+      operator_name,
       created_at;
     `;
 

@@ -53,6 +53,8 @@ export class EquipmentStatusService {
       engine_status: item.engine_status,
       breakdown: item.breakdown,
       gsm_signal: item.gsm_signal,
+      shift: item.shift,
+      operator_name: item.operator_name,
     }));
   }
 

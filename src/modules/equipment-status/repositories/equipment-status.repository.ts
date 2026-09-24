@@ -99,6 +99,7 @@ export class EquipmentStatusRepository {
         es.breakdown,
         es.gsm_signal,
         es.shift,
+        es.operator_name,
         ST_Y(es.location::geometry) AS latitude,
         ST_X(es.location::geometry) AS longitude,
         e.equipment_code,
@@ -173,6 +174,7 @@ export class EquipmentStatusRepository {
         shift,
         breakdown,
         gsm_signal,
+        operator_name,
         updated_at
       ) VALUES (
         ${rest.equipment_id}::uuid, 
@@ -197,6 +199,7 @@ export class EquipmentStatusRepository {
         ${rest.shift || null},
         ${rest.breakdown ?? null},
         ${rest.gsm_signal ?? null},
+        ${rest.operator_name ?? null},
         ${rest.last_update_at || new Date()}
       )
         ON CONFLICT (equipment_id) DO UPDATE SET
@@ -221,6 +224,7 @@ export class EquipmentStatusRepository {
           shift = EXCLUDED.shift,
           breakdown = EXCLUDED.breakdown,
           gsm_signal = EXCLUDED.gsm_signal,
+          operator_name = EXCLUDED.operator_name,
           updated_at = EXCLUDED.updated_at;
       `;
   }
@@ -259,6 +263,7 @@ export class EquipmentStatusRepository {
         es.engine_status,
         es.breakdown,
         es.gsm_signal,
+        es.operator_name,
         ST_Y(es.location::geometry) AS latitude,
         ST_X(es.location::geometry) AS longitude,
 
