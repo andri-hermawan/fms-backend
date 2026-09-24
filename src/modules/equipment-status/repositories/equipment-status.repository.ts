@@ -40,6 +40,41 @@ export class EquipmentStatusRepository {
     });
   }
 
+  async updateOperatorNameByDateAndShift(params: {
+    equipment_id: string;
+    date_at: Date | string;
+    shift?: string;
+    operator_name: string;
+  }) {
+    const normalizedDate = this.normalizeDateToDate(params.date_at);
+    if (!normalizedDate) {
+      return { count: 0 };
+    }
+
+    const startOfDay = new Date(normalizedDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(normalizedDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const normalizedShift =
+      typeof params.shift === 'string' ? params.shift.trim() : params.shift;
+
+    return this.prisma.equipment_status.updateMany({
+      where: {
+        equipment_id: params.equipment_id,
+        ...(normalizedShift ? { shift: normalizedShift } : {}),
+        created_at: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
+      },
+      data: {
+        operator_name: params.operator_name,
+        updated_at: new Date(),
+      },
+    });
+  }
+
   async findByEquipmentId(equipment_id: string) {
     const result = await this.prisma.$queryRaw<any[]>`
       SELECT
@@ -64,6 +99,7 @@ export class EquipmentStatusRepository {
         es.breakdown,
         es.gsm_signal,
         es.shift,
+        es.operator_name,
         ST_Y(es.location::geometry) AS latitude,
         ST_X(es.location::geometry) AS longitude,
         e.equipment_code,
@@ -138,6 +174,7 @@ export class EquipmentStatusRepository {
         shift,
         breakdown,
         gsm_signal,
+        operator_name,
         updated_at
       ) VALUES (
         ${rest.equipment_id}::uuid, 
@@ -162,6 +199,7 @@ export class EquipmentStatusRepository {
         ${rest.shift || null},
         ${rest.breakdown ?? null},
         ${rest.gsm_signal ?? null},
+        ${rest.operator_name ?? null},
         ${rest.last_update_at || new Date()}
       )
         ON CONFLICT (equipment_id) DO UPDATE SET
@@ -186,6 +224,7 @@ export class EquipmentStatusRepository {
           shift = EXCLUDED.shift,
           breakdown = EXCLUDED.breakdown,
           gsm_signal = EXCLUDED.gsm_signal,
+          operator_name = EXCLUDED.operator_name,
           updated_at = EXCLUDED.updated_at;
       `;
   }
@@ -224,6 +263,7 @@ export class EquipmentStatusRepository {
         es.engine_status,
         es.breakdown,
         es.gsm_signal,
+        es.operator_name,
         ST_Y(es.location::geometry) AS latitude,
         ST_X(es.location::geometry) AS longitude,
 

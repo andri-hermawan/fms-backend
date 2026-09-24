@@ -4,10 +4,13 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { SettingOperatorRepository } from './setting-operator.repository';
-import { CreateSettingOperatorDto } from '../dto/create-setting-operator.dto';
-import { UpdateSettingOperatorDto } from '../dto/update-setting-operator.dto';
-import { QuerySettingOperatorDto } from '../dto/query-setting-operator.dto';
+import { SettingOperatorRepository } from './repositories/setting-operator.repository';
+import { CreateSettingOperatorDto } from './dto/create-setting-operator.dto';
+import { UpdateSettingOperatorDto } from './dto/update-setting-operator.dto';
+import { QuerySettingOperatorDto } from './dto/query-setting-operator.dto';
+import { EquipmentsRepository } from '../equipments/repositories/equipments.repository';
+import { EquipmentStatusRepository } from '../equipment-status/repositories/equipment-status.repository';
+import { WebSocketGatewayService } from '../../common/websocket/websocket.gateway';
 import * as ExcelJS from 'exceljs';
 import type { Express } from 'express';
 
@@ -15,7 +18,12 @@ import type { Express } from 'express';
 export class SettingOperatorService {
   private readonly logger = new Logger(SettingOperatorService.name);
 
-  constructor(private readonly repository: SettingOperatorRepository) {}
+  constructor(
+    private readonly repository: SettingOperatorRepository,
+    private readonly equipmentsRepository: EquipmentsRepository,
+    private readonly equipmentStatusRepository: EquipmentStatusRepository,
+    private readonly wsGateway: WebSocketGatewayService,
+  ) {}
 
   async create(dto: CreateSettingOperatorDto) {
     const data = {
@@ -119,7 +127,7 @@ export class SettingOperatorService {
         if (rowNumber === 1) return; // skip header
         const rawValues = row.values;
         this.logger.debug(
-          `[importExcel] Excel row=${rowNumber} raw=${JSON.stringify(rawValues, (_, value) => value instanceof Date ? value.toISOString() : value)}`,
+          `[importExcel] Excel row=${rowNumber} raw=${JSON.stringify(rawValues, (_, value) => (value instanceof Date ? value.toISOString() : value))}`,
         );
         const get = (index: number) => {
           const cell = row.getCell(index);
@@ -173,6 +181,86 @@ export class SettingOperatorService {
     }
 
     const count = await this.createMany(rows);
+
+    const now = new Date();
+    const todayString = new Date(
+      Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
+    );
+
+    for (const row of rows) {
+      if (!row.operator_name) {
+        continue;
+      }
+
+      const dateAt = this.parseDate(row.date_at);
+
+      if (
+        Number.isNaN(dateAt.getTime()) ||
+        dateAt.getUTCFullYear() !== todayString.getUTCFullYear() ||
+        dateAt.getUTCMonth() !== todayString.getUTCMonth() ||
+        dateAt.getUTCDate() !== todayString.getUTCDate()
+      ) {
+        continue;
+      }
+
+      const equipment = await this.equipmentsRepository.findByCode(
+        row.equipment_code,
+      );
+
+      if (!equipment) {
+        this.logger.warn(
+          `[importExcel] equipment_code=${row.equipment_code} tidak ditemukan, skip update operator_name`,
+        );
+        continue;
+      }
+
+      const updatedStatus =
+        await this.equipmentStatusRepository.updateOperatorNameByDateAndShift({
+          equipment_id: equipment.id,
+          date_at: dateAt,
+          shift: row.shift,
+          operator_name: row.operator_name,
+        });
+
+      if (updatedStatus.count > 0) {
+        const equipmentStatus =
+          await this.equipmentStatusRepository.findByEquipmentId(equipment.id);
+        if (equipmentStatus) {
+          this.wsGateway.emitEquipmentStatusUpdate({
+            equipment_id: equipmentStatus.equipment_id,
+            equipment_code: equipmentStatus.equipment_code,
+            equipment_alias: equipmentStatus.equipment_alias,
+            latitude: Number(equipmentStatus.latitude),
+            longitude: Number(equipmentStatus.longitude),
+            speed: Number(equipmentStatus.speed ?? 0),
+            fuel_level: Number(equipmentStatus.fuel_level ?? 0),
+            fuel_temperature: Number(equipmentStatus.fuel_temperature ?? 0),
+            fuel_volume: Number(equipmentStatus.fuel_volume ?? 0),
+            fuel_percentage: Number(equipmentStatus.fuel_percentage ?? 0),
+            fuel_difference: Number(equipmentStatus.fuel_difference ?? 0),
+            alert_count: Number(equipmentStatus.alert_count ?? 0),
+            ignition: Boolean(equipmentStatus.engine_status),
+            status: equipmentStatus.status ?? 'UNKNOWN',
+            recorded_at: equipmentStatus.updated_at,
+            log_id: equipmentStatus.log_id?.toString(),
+            updated_at: equipmentStatus.updated_at,
+            last_update_at: equipmentStatus.updated_at,
+            is_inside: equipmentStatus.is_inside,
+            location_category: equipmentStatus.location_category,
+            segment: equipmentStatus.segment,
+            vessel: equipmentStatus.vessel,
+            mileage: equipmentStatus.mileage,
+            vessel_status: equipmentStatus.vessel_status,
+            engine_status: equipmentStatus.engine_status,
+            breakdown: equipmentStatus.breakdown,
+            gsm_signal: equipmentStatus.gsm_signal,
+            shift: equipmentStatus.shift,
+            operator_name: row.operator_name,
+          });
+        }
+      }
+    }
+
     return { imported: rows.length, count: count.count };
   }
 
@@ -221,6 +309,23 @@ export class SettingOperatorService {
     return this.serialize(record);
   }
 
+  /**
+   * Mengambil `operator_name` berdasarkan `date`, `equipment_id`, dan `shift`.
+   *
+   * `equipment_id` di-join lewat `equipments.equipment_code`,
+   * sedangkan filter `date` dan `shift` mengacu ke `daily_setting_operator`.
+   */
+  async findOperatorNameByEquipmentID(params: {
+    date: string;
+    equipment_id: string;
+    shift?: string;
+  }) {
+    const { date, equipment_id, shift } = params;
+    const operator_name =
+      await this.repository.findOperatorNameByEquipmentID(params);
+    return { date, equipment_id, shift, operator_name };
+  }
+
   async update(id: string, dto: UpdateSettingOperatorDto) {
     const existing = await this.repository.findById(BigInt(id));
     if (!existing) {
@@ -256,12 +361,54 @@ export class SettingOperatorService {
   private normalizeImportDate(value: string): string | undefined {
     const dateValue = value.trim();
     const match = /^(\d{2})[-/](\d{2})[-/](\d{4})$/.exec(dateValue);
-    const isoDate = match
-      ? `${match[3]}-${match[2]}-${match[1]}`
-      : dateValue;
+    const isoDate = match ? `${match[3]}-${match[2]}-${match[1]}` : dateValue;
     const parsedDate = new Date(isoDate);
 
     if (isNaN(parsedDate.getTime())) return undefined;
     return isoDate;
+  }
+
+  /**
+   * Normalisasi tanggal dari file import menjadi Date (UTC midnight)
+   * agar konsisten saat dibandingkan dengan tanggal hari ini.
+   */
+  private parseDate(value?: string | Date): Date {
+    if (value instanceof Date) {
+      return new Date(
+        Date.UTC(
+          value.getUTCFullYear(),
+          value.getUTCMonth(),
+          value.getUTCDate(),
+        ),
+      );
+    }
+
+    const str = (value ?? '').trim();
+
+    // Format hasil import YYYY/MM/DD atau YYYY-MM-DD.
+    const ymd = str.match(/^(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})/);
+    if (ymd) {
+      return new Date(
+        Date.UTC(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3])),
+      );
+    }
+
+    // Format D/M/YYYY atau DD/MM/YYYY (standar Indonesia, pemisah / - .)
+    const dmy = str.match(/^(\d{1,2})[/\-.]\s*(\d{1,2})[/\-.]\s*(\d{4})$/);
+    if (dmy) {
+      return new Date(
+        Date.UTC(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1])),
+      );
+    }
+
+    const parsed = new Date(str);
+    if (Number.isNaN(parsed.getTime())) return parsed;
+    return new Date(
+      Date.UTC(
+        parsed.getUTCFullYear(),
+        parsed.getUTCMonth(),
+        parsed.getUTCDate(),
+      ),
+    );
   }
 }

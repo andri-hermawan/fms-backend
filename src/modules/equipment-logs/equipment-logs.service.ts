@@ -18,6 +18,7 @@ import { serializeBigInt } from '../../common/helpers/bigint.helper';
 import { WebSocketGatewayService } from '../../common/websocket/websocket.gateway';
 import { ShiftsService } from '../shifts/shifts.service';
 import { QueryByEquipmentDateShiftDto } from './dto/query-by-equipment-date-shift.dto';
+import { SettingOperatorRepository } from '../setting-operator/repositories/setting-operator.repository';
 @Injectable()
 export class EquipmentLogsService {
   private readonly logger = new Logger(EquipmentLogsService.name);
@@ -32,6 +33,7 @@ export class EquipmentLogsService {
     private readonly equipmentStatusService: EquipmentStatusService,
     private readonly wsGateway: WebSocketGatewayService,
     private readonly shiftsService: ShiftsService,
+    private readonly settingOperatorRepository: SettingOperatorRepository,
   ) {}
 
   async create(dto: CreateEquipmentLogDto) {
@@ -242,6 +244,24 @@ export class EquipmentLogsService {
       shiftName = null;
     }
 
+    // STEP 7.6: Resolve operator_name from daily_setting_operator.
+    // `date` dikirim sebagai YYYY-MM-DD (timezone Asia/Jakarta) agar sesuai
+    // dengan format parameter pada endpoint setting-operator.
+    const operatorDate = operationalCreatedAt.toLocaleDateString('en-CA', {
+      timeZone: 'Asia/Jakarta',
+    });
+    let operatorName: string | null = null;
+    try {
+      operatorName =
+        await this.settingOperatorRepository.findOperatorNameByEquipmentID({
+          equipment_id: dto.equipment_id!,
+          date: operatorDate,
+          shift: shiftName ?? undefined,
+        });
+    } catch {
+      operatorName = null;
+    }
+
     const useLastFuel = Number(fuel_level) === -4 || Number(fuel_level) === 0;
     const savedFuelLevel = useLastFuel ? lastLog?.fuel_level : fuel_level;
     const savedFuelVolume = useLastFuel ? lastLog?.fuel_volume : fuelVolume;
@@ -260,6 +280,7 @@ export class EquipmentLogsService {
       ...rest,
       equipment_id: dto.equipment_id,
       shift: shiftName,
+      operator_name: operatorName,
       speed: speed || 0,
       fuel_level: savedFuelLevel,
       fuel_volume: savedFuelVolume,
@@ -281,6 +302,12 @@ export class EquipmentLogsService {
       gsm_operator: gsmOperator,
       created_at: operationalCreatedAt,
     });
+
+    this.logger.debug(
+      `[SavedLog] equipment=${dto.equipment_id} operatorName=${operatorName} ` +
+        `operationalCreatedAt=${operationalCreatedAt.toISOString()} ` +
+        `shiftName=${shiftName} `,
+    );
 
     // this.logger.debug(
     //   `[SavedLog] equipment=${dto.equipment_id} id=${savedLog.id} ` +
@@ -350,6 +377,8 @@ export class EquipmentLogsService {
       mileage: dto.mileage,
       vessel_status: currentVesselStatus,
       shift: shiftName,
+      status_engine: opStatus,
+      operator_name: operatorName,
     };
 
     // Run off-track lifecycle before geofence events can interrupt processing.
@@ -555,6 +584,7 @@ export class EquipmentLogsService {
         breakdown: dto.breakdown || false,
         gsm_signal: dto.gsm_signal ?? 0,
         shift: shiftName,
+        operator_name: savedLog.operator_name,
         alert_count: alertCount,
         last_update_at: savedLog.created_at,
       });
@@ -583,6 +613,7 @@ export class EquipmentLogsService {
         breakdown: dto.breakdown || false,
         gsm_signal: dto.gsm_signal ?? 0,
         shift: shiftName,
+        operator_name: savedLog.operator_name,
         alert_count: alertCount,
         last_update_at: currentTime,
       });
@@ -1204,6 +1235,8 @@ export class EquipmentLogsService {
       is_read: false,
       shift: info.shift,
       breakdown: info.breakdown,
+      status_engine: info.status_engine,
+      operator_name: info.operator_name,
     };
   }
 

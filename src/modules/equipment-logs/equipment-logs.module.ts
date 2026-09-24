@@ -12,6 +12,7 @@ import { FuelsModule } from '../fuels/fuels.module';
 import { FuelCalibrationsModule } from '../fuel-calibrations/fuel-calibrations.module';
 import { GeofencesModule } from '../geofences/geofences.module';
 import { ShiftsModule } from '../shifts/shifts.module';
+import { SettingOperatorModule } from '../setting-operator/setting-operator.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { ShiftsModule } from '../shifts/shifts.module';
     FuelCalibrationsModule, // <--- Tambahkan module-nya di sini
     GeofencesModule, // <--- Tambahkan module-nya di sini
     ShiftsModule, // <--- Tambahkan module-nya di sini
+    SettingOperatorModule, // <--- Tambahkan module-nya di sini
   ],
   controllers: [EquipmentLogsController],
   providers: [

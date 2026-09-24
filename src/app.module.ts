@@ -21,7 +21,7 @@ import { EquipmentStatusModule } from './modules/equipment-status/equipment-stat
 import { AppController } from './app.controller';
 import { FuelCalibrationsModule } from './modules/fuel-calibrations/fuel-calibrations.module';
 import { WebSocketModule } from './common/websocket/websocket.module';
-import { SettingOperatorModule } from './modules/setting-operator/repositories/setting-operator.module';
+import { SettingOperatorModule } from './modules/setting-operator/setting-operator.module';
 import { BreakdownStatusModule } from './modules/breakdown-status/breakdown-status.module';
 import { WeighbridgeModule } from './modules/weighbridge/weighbridge.module';
 
