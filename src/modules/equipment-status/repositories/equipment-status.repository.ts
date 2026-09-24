@@ -40,6 +40,41 @@ export class EquipmentStatusRepository {
     });
   }
 
+  async updateOperatorNameByDateAndShift(params: {
+    equipment_id: string;
+    date_at: Date | string;
+    shift?: string;
+    operator_name: string;
+  }) {
+    const normalizedDate = this.normalizeDateToDate(params.date_at);
+    if (!normalizedDate) {
+      return { count: 0 };
+    }
+
+    const startOfDay = new Date(normalizedDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(normalizedDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const normalizedShift =
+      typeof params.shift === 'string' ? params.shift.trim() : params.shift;
+
+    return this.prisma.equipment_status.updateMany({
+      where: {
+        equipment_id: params.equipment_id,
+        ...(normalizedShift ? { shift: normalizedShift } : {}),
+        created_at: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
+      },
+      data: {
+        operator_name: params.operator_name,
+        updated_at: new Date(),
+      },
+    });
+  }
+
   async findByEquipmentId(equipment_id: string) {
     const result = await this.prisma.$queryRaw<any[]>`
       SELECT

@@ -34,8 +34,7 @@ model alerts {
   mileage           Decimal?                 @db.Decimal(12, 2)
   vessel_status     String?                  @db.VarChar(50)
   engine_status     Boolean?
-  status            String?                  @db.VarChar(20)
-  shift             String?                  @db.VarChar(100)
+  status            String?                  @db.VarChar(50)
   resolved_at       DateTime?                @db.Timestamptz(6)
   resolved_by       String?                  @db.Uuid
   created_at        DateTime?                @default(now()) @db.Timestamptz(6)
@@ -44,10 +43,13 @@ model alerts {
   updated_by        String?                  @db.Uuid
   alert_category_id String?                  @db.Uuid
   is_read           Boolean?
+  shift             String?                  @db.VarChar(100)
   fuel_temperature  Decimal?                 @db.Decimal(10, 2)
   fuel_volume       Decimal?                 @db.Decimal(10, 2)
   fuel_percentage   Decimal?                 @db.Decimal(10, 2)
   fuel_difference   Decimal?                 @db.Decimal(10, 2)
+  status_engine     String?                  @db.VarChar(20)
+  operator_name     String?                  @db.VarChar(100)
   alert_categories  alert_categories?        @relation(fields: [alert_category_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "alerts_category_id_fkey")
   equipments        equipments?              @relation(fields: [equipment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   equipment_logs    equipment_logs?          @relation(fields: [log_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -113,8 +115,6 @@ model equipment_logs {
   vessel_status            String?                  @db.VarChar(50)
   engine_status            Boolean?
   status                   String?                  @db.VarChar(20)
-  breakdown                Boolean?
-  shift                    String?                  @db.VarChar(100)
   created_at               DateTime?                @default(now()) @db.Timestamptz(6)
   created_by               String?                  @db.Uuid
   updated_at               DateTime?                @db.Timestamp(6)
@@ -141,6 +141,9 @@ model equipment_logs {
   fuel_volume              Decimal?                 @db.Decimal(10, 2)
   fuel_percentage          Decimal?                 @db.Decimal(10, 2)
   fuel_difference          Decimal?                 @db.Decimal(10, 2)
+  shift                    String?                  @db.VarChar(100)
+  breakdown                Boolean?
+  operator_name            String?                  @db.VarChar(100)
   alerts                   alerts[]
   devices                  devices?                 @relation(fields: [device_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   equipments               equipments?              @relation(fields: [equipment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -168,9 +171,6 @@ model equipment_status {
   vessel_status     String?                  @db.VarChar(50)
   engine_status     Boolean?
   status            String?                  @db.VarChar(20)
-  breakdown         Boolean?
-  gsm_signal        Int?                     @db.SmallInt
-  shift             String?                  @db.VarChar(100)
   created_at        DateTime?                @default(now()) @db.Timestamp(6)
   created_by        String?                  @db.Uuid
   updated_at        DateTime?                @db.Timestamp(6)
@@ -180,6 +180,10 @@ model equipment_status {
   fuel_volume       Decimal?                 @db.Decimal(10, 2)
   fuel_percentage   Decimal?                 @db.Decimal(10, 2)
   fuel_difference   Decimal?                 @db.Decimal(10, 2)
+  shift             String?                  @db.VarChar(100)
+  gsm_signal        Int?                     @db.SmallInt
+  breakdown         Boolean?
+  operator_name     String?                  @db.VarChar(100)
   equipments        equipments               @relation(fields: [equipment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   equipment_logs    equipment_logs?          @relation(fields: [log_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -204,10 +208,10 @@ model equipments {
   devices           devices[]
   equipment_logs    equipment_logs[]
   equipment_status  equipment_status?
+  projects          projects?           @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   fuel_calibrations fuel_calibrations[]
   fuels             fuels[]
   geofences         geofences[]
-  projects          projects?           @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([project_id], map: "idx_equipment_project")
 }
@@ -230,15 +234,15 @@ model fuels {
   mileage           Decimal?                 @db.Decimal(12, 2)
   vessel_status     String?                  @db.VarChar(50)
   engine_status     Boolean?
-  status            String?                  @db.VarChar(20)
-  shift             String?                  @db.VarChar(100)
+  status            String?                  @db.VarChar(50)
   created_at        DateTime?                @default(now()) @db.Timestamp(6)
   created_by        String?                  @db.Uuid
   updated_at        DateTime?                @db.Timestamp(6)
   updated_by        String?                  @db.Uuid
   fuel_difference   Decimal?                 @db.Decimal(10, 2)
   fuel_percentage   Decimal?                 @db.Decimal(5, 2)
-  event_type        String?                  @db.VarChar(30)
+  event_type        String?                  @db.VarChar(50)
+  shift             String?                  @db.VarChar(100)
   equipments        equipments?              @relation(fields: [equipment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   equipment_logs    equipment_logs?          @relation(fields: [log_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -258,8 +262,8 @@ model projects {
   created_by     String?                  @db.Uuid
   updated_at     DateTime?                @db.Timestamp(6)
   updated_by     String?                  @db.Uuid
-  companies      companies?               @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "projects_copy1_company_id_fkey")
   equipments     equipments[]
+  companies      companies?               @relation(fields: [company_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "projects_copy1_company_id_fkey")
   shifts         shifts[]
   users          users[]
 
@@ -334,13 +338,13 @@ model geofences {
   vessel_status     String?                  @db.VarChar(50)
   engine_status     Boolean?
   status            String?                  @db.VarChar(20)
-  shift             String?                  @db.VarChar(100)
   resolved_at       DateTime?                @db.Timestamp(6)
   resolved_by       String?                  @db.Uuid
   created_at        DateTime?                @default(now()) @db.Timestamp(6)
   created_by        String?                  @db.Uuid
   updated_at        DateTime?                @db.Timestamp(6)
   updated_by        String?                  @db.Uuid
+  shift             String?                  @db.VarChar(100)
   equipments        equipments?              @relation(fields: [equipment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   equipment_logs    equipment_logs?          @relation(fields: [log_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -382,22 +386,22 @@ model daily_setting_operator {
 }
 
 model breakdown_status {
-  id            BigInt    @id @default(autoincrement())
-  date_at       DateTime? @db.Date
-  shift         String?   @db.VarChar(10)
-  equipment_code String?  @db.VarChar(50)
-  status        String?   @db.VarChar(30)
-  category      String?   @db.VarChar(50)
-  time_start    DateTime? @db.Time(6)
-  time_end      DateTime? @db.Time(6)
-  duration      DateTime? @db.Time(6)
-  repair_status String?   @db.VarChar(30)
-  description   String?   @db.VarChar(255)
-  location      String?   @db.VarChar(100)
-  created_at    DateTime? @default(now()) @db.Timestamp(6)
-  created_by    String?   @db.VarChar(50)
-  updated_at    DateTime? @db.Timestamp(6)
-  updated_by    String?   @db.VarChar(50)
+  id             BigInt    @id @default(autoincrement())
+  date_at        DateTime? @db.Date
+  shift          String?   @db.VarChar(10)
+  equipment_code String?   @db.VarChar(50)
+  status         String?   @db.VarChar(30)
+  category       String?   @db.VarChar(50)
+  time_start     DateTime? @db.Time(6)
+  time_end       DateTime? @db.Time(6)
+  duration       DateTime? @db.Time(6)
+  repair_status  String?   @db.VarChar(30)
+  description    String?   @db.VarChar(255)
+  location       String?   @db.VarChar(100)
+  created_at     DateTime? @default(now()) @db.Timestamp(6)
+  created_by     String?   @db.VarChar(50)
+  updated_at     DateTime? @db.Timestamp(6)
+  updated_by     String?   @db.VarChar(50)
 }
 
 model weighbridge {

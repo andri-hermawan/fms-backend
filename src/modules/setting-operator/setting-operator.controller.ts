@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -17,15 +18,17 @@ import {
   ApiBody,
   ApiConsumes,
   ApiOperation,
+  ApiParam,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SettingOperatorService } from './setting-operator.service';
-import { CreateSettingOperatorDto } from '../dto/create-setting-operator.dto';
+import { CreateSettingOperatorDto } from './dto/create-setting-operator.dto';
 import type { Express } from 'express';
-import { UpdateSettingOperatorDto } from '../dto/update-setting-operator.dto';
-import { QuerySettingOperatorDto } from '../dto/query-setting-operator.dto';
+import { UpdateSettingOperatorDto } from './dto/update-setting-operator.dto';
+import { QuerySettingOperatorDto } from './dto/query-setting-operator.dto';
+import { QueryOperatorNameDto } from './dto/query-operator-name.dto';
 
 @ApiTags('Setting Operator')
 @ApiBearerAuth()
@@ -66,6 +69,29 @@ export class SettingOperatorController {
   @ApiOperation({ summary: 'Mengambil daftar setting operator' })
   findAll(@Query() query: QuerySettingOperatorDto) {
     return this.settingOperatorService.findAll(query);
+  }
+
+  @Get('operator-name/:equipmentId')
+  @ApiOperation({
+    summary: 'Mengambil operator_name berdasarkan date, equipment_id, dan shift',
+    description:
+      'equipment_id di-join lewat equipments.equipment_code -> daily_setting_operator.equipment_code. ' +
+      'Filter date dan shift diterapkan pada tabel daily_setting_operator.',
+  })
+  @ApiParam({
+    name: 'equipmentId',
+    description: 'ID (uuid) dari equipments',
+    example: '6f1b3d4e-2c5a-4b8f-9d1e-7a3c5b8e9f01',
+  })
+  findOperatorNameByEquipmentID(
+    @Param('equipmentId', ParseUUIDPipe) equipmentId: string,
+    @Query() query: QueryOperatorNameDto,
+  ) {
+    return this.settingOperatorService.findOperatorNameByEquipmentID({
+      date: query.date,
+      equipment_id: equipmentId,
+      shift: query.shift,
+    });
   }
 
   @Get(':id')
