@@ -377,6 +377,8 @@ export class EquipmentLogsService {
       mileage: dto.mileage,
       vessel_status: currentVesselStatus,
       shift: shiftName,
+      status_engine: opStatus,
+      operator_name: operatorName,
     };
 
     // Run off-track lifecycle before geofence events can interrupt processing.
@@ -1233,6 +1235,8 @@ export class EquipmentLogsService {
       is_read: false,
       shift: info.shift,
       breakdown: info.breakdown,
+      status_engine: info.status_engine,
+      operator_name: info.operator_name,
     };
   }
 

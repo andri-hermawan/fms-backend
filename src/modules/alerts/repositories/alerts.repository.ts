@@ -15,7 +15,8 @@ export class AlertsRepository {
         segment, speed, fuel_level, fuel_volume, fuel_percentage,
         fuel_difference, fuel_temperature,
         vessel, mileage, vessel_status, engine_status, 
-        status, shift, is_read, created_at, resolved_at
+        status, shift, is_read, created_at, resolved_at,
+        status_engine, operator_name
       ) VALUES (
         ${rest.equipment_id}::uuid, ${rest.alert_category_id}::uuid,${rest.log_id},
         ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326),
@@ -26,7 +27,8 @@ export class AlertsRepository {
         ${rest.vessel}, ${rest.mileage}, ${rest.vessel_status}, ${rest.engine_status},
         ${rest.status}, ${rest.shift || null}, ${rest.is_read ?? false},
         COALESCE(${rest.created_at}::timestamptz, NOW()),
-        ${rest.resolved_at ?? null}::timestamptz
+        ${rest.resolved_at ?? null}::timestamptz,
+        ${rest.status_engine ?? null}, ${rest.operator_name ?? null}
       )
     `;
   }

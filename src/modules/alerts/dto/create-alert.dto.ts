@@ -126,6 +126,16 @@ export class CreateAlertDto {
   @IsBoolean()
   breakdown?: boolean;
 
+  @ApiPropertyOptional({ example: 'RUNNING' })
+  @IsOptional()
+  @IsString()
+  status_engine?: string;
+
+  @ApiPropertyOptional({ example: 'Operator Name' })
+  @IsOptional()
+  @IsString()
+  operator_name?: string;
+
   @ApiPropertyOptional({ example: '2026-08-20T07:27:30+07:00' })
   @IsOptional()
   resolved_at?: Date;
