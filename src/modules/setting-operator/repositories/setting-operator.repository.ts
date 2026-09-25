@@ -18,6 +18,74 @@ export class SettingOperatorRepository {
     return await this.prisma.daily_setting_operator.createMany({ data });
   }
 
+  async findExistingKeys(
+    keys: Array<{
+      date_at: Date;
+      shift: string;
+      equipment_code: string;
+    }>,
+  ): Promise<
+    Array<{
+      date_at: Date | null;
+      shift: string | null;
+      equipment_code: string | null;
+    }>
+  > {
+    if (keys.length === 0) return [];
+
+    return await this.prisma.daily_setting_operator.findMany({
+      where: {
+        OR: keys.map((key) => ({
+          date_at: key.date_at,
+          shift: key.shift,
+          equipment_code: key.equipment_code,
+        })),
+      },
+      select: {
+        date_at: true,
+        shift: true,
+        equipment_code: true,
+      },
+    });
+  }
+
+  async upsertImportRows(
+    rows: Prisma.daily_setting_operatorUncheckedCreateInput[],
+  ): Promise<{ created: number; updated: number }> {
+    return await this.prisma.$transaction(async (tx) => {
+      let created = 0;
+      let updated = 0;
+
+      for (const row of rows) {
+        const existing = await tx.daily_setting_operator.findFirst({
+          where: {
+            date_at: row.date_at,
+            shift: row.shift,
+            equipment_code: row.equipment_code,
+          },
+          select: { id: true },
+        });
+
+        if (existing) {
+          await tx.daily_setting_operator.update({
+            where: { id: existing.id },
+            data: {
+              operator_name: row.operator_name,
+              description: row.description,
+              updated_at: new Date(),
+            },
+          });
+          updated++;
+        } else {
+          await tx.daily_setting_operator.create({ data: row });
+          created++;
+        }
+      }
+
+      return { created, updated };
+    });
+  }
+
   async findAll(params: {
     skip?: number;
     take?: number;

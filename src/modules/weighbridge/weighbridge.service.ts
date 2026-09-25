@@ -7,8 +7,9 @@ import { WeighbridgeRepository } from './repositories/weighbridge.repository';
 import { CreateWeighbridgeDto } from './dto/create-weighbridge.dto';
 import { UpdateWeighbridgeDto } from './dto/update-weighbridge.dto';
 import { QueryWeighbridgeDto } from './dto/query-weighbridge.dto';
-import * as ExcelJS from 'exceljs';
+import * as XLSX from 'xlsx';
 import type { Express } from 'express';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class WeighbridgeService {
@@ -16,7 +17,7 @@ export class WeighbridgeService {
 
   async create(dto: CreateWeighbridgeDto) {
     const data = {
-      date_at: new Date(dto.date_at),
+      date_at: this.parseDate(dto.date_at),
       shift: dto.shift,
       ticket_no: dto.ticket_no,
       equipment_code: dto.equipment_code,
@@ -39,7 +40,7 @@ export class WeighbridgeService {
 
   async createMany(dtos: CreateWeighbridgeDto[]) {
     const data = dtos.map((dto) => ({
-      date_at: new Date(dto.date_at),
+      date_at: this.parseDate(dto.date_at),
       shift: dto.shift,
       ticket_no: dto.ticket_no,
       equipment_code: dto.equipment_code,
@@ -77,94 +78,139 @@ export class WeighbridgeService {
       );
     }
 
+    const workbook = XLSX.read(file.buffer, {
+      type: 'buffer',
+      cellDates: true,
+      raw: true,
+    });
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    if (!worksheet) {
+      throw new BadRequestException('File tidak memiliki worksheet');
+    }
+
+    // `header: 1` preserves the existing import column order and also makes
+    // this work for CSV files with quoted commas in their values.
+    const records = XLSX.utils.sheet_to_json<unknown[]>(worksheet, {
+      header: 1,
+      defval: undefined,
+      raw: true,
+    });
     const rows: CreateWeighbridgeDto[] = [];
 
-    if (isCsv) {
-      const content = file.buffer.toString('utf8');
-      const lines = content.split(/\r?\n/).filter((line) => line.trim() !== '');
-      lines.forEach((line, index) => {
-        if (index === 0) return; // skip header
-        const cols = line.split(',');
-        const date_at = cols[0]?.trim();
-        const equipment_code = cols[3]?.trim();
-        if (!date_at || !equipment_code) return;
-        rows.push({
-          date_at,
-          shift: cols[1]?.trim() || undefined,
-          ticket_no: cols[2]?.trim() || undefined,
-          equipment_code,
-          product: cols[4]?.trim() || undefined,
-          gross: cols[5]?.trim() ? Number(cols[5]) : undefined,
-          tare: cols[6]?.trim() ? Number(cols[6]) : undefined,
-          net: cols[7]?.trim() ? Number(cols[7]) : undefined,
-          recipient: cols[8]?.trim() || undefined,
-          customer: cols[9]?.trim() || undefined,
-          transporter: cols[10]?.trim() || undefined,
-          gross_time: cols[11]?.trim() || undefined,
-          tare_time: cols[12]?.trim() || undefined,
-          gross_operator: cols[13]?.trim() || undefined,
-          tare_operator: cols[14]?.trim() || undefined,
-          description: cols[15]?.trim() || undefined,
-        });
-      });
-    } else {
-      const workbook = new ExcelJS.Workbook();
-      await workbook.xlsx.load(file.buffer as any);
-      const worksheet = workbook.worksheets[0];
+    const getText = (value: unknown) => {
+      if (value === null || value === undefined) return undefined;
+      if (value instanceof Date) return value.toISOString();
+      if (
+        typeof value === 'string' ||
+        typeof value === 'number' ||
+        typeof value === 'boolean' ||
+        typeof value === 'bigint'
+      ) {
+        return String(value).trim() || undefined;
+      }
+      return undefined;
+    };
+    const getDate = (value: unknown) => {
+      if (value instanceof Date) {
+        return this.toDatabaseDateString(
+          value.getUTCFullYear(),
+          value.getUTCMonth() + 1,
+          value.getUTCDate(),
+        );
+      }
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        const serialDate = new Date(
+          Date.UTC(1899, 11, 30) + Math.floor(value) * 86400000,
+        );
+        return this.toDatabaseDateString(
+          serialDate.getUTCFullYear(),
+          serialDate.getUTCMonth() + 1,
+          serialDate.getUTCDate(),
+        );
+      }
+      return this.normalizeImportDate(getText(value));
+    };
+    const getNum = (value: unknown) => {
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      const text = getText(value);
+      if (!text) return undefined;
+      const number = Number(text.replace(/,/g, ''));
+      return Number.isFinite(number) ? number : undefined;
+    };
 
-      worksheet.eachRow((row, rowNumber) => {
-        if (rowNumber === 1) return; // skip header
-        const get = (index: number) =>
-          row.getCell(index).value !== null &&
-          row.getCell(index).value !== undefined
-            ? String(row.getCell(index).value)
-            : undefined;
-        const getNum = (index: number) => {
-          const v = get(index);
-          return v && !isNaN(Number(v)) ? Number(v) : undefined;
-        };
-        const getTime = (index: number) => {
-          const v = row.getCell(index).value;
-          if (v === null || v === undefined) return undefined;
-          if (v instanceof Date) {
-            return v.toISOString();
-          }
-          if (typeof v === 'number') {
-            const date = new Date(Date.UTC(1899, 11, 30) + v * 86400000);
-            return date.toISOString();
-          }
-          return String(v);
-        };
-        const date_at = get(1);
-        const equipment_code = get(4);
-        if (!date_at || !equipment_code) return;
-        rows.push({
-          date_at,
-          shift: get(2),
-          ticket_no: get(3),
-          equipment_code,
-          product: get(5),
-          gross: getNum(6),
-          tare: getNum(7),
-          net: getNum(8),
-          recipient: get(9),
-          customer: get(10),
-          transporter: get(11),
-          gross_time: getTime(12),
-          tare_time: getTime(13),
-          gross_operator: get(14),
-          tare_operator: get(15),
-          description: get(16),
-        });
+    records.slice(1).forEach((record) => {
+      const date_at = getDate(record[0]);
+      const equipment_code = getText(record[3]);
+      if (!date_at || !equipment_code) return;
+
+      rows.push({
+        date_at,
+        shift: getText(record[1]),
+        ticket_no: getText(record[2]),
+        equipment_code,
+        product: getText(record[4]),
+        gross: getNum(record[5]),
+        tare: getNum(record[6]),
+        net: getNum(record[7]),
+        recipient: getText(record[8]),
+        customer: getText(record[9]),
+        transporter: getText(record[10]),
+        gross_time: getText(record[11]),
+        tare_time: getText(record[12]),
+        gross_operator: getText(record[13]),
+        tare_operator: getText(record[14]),
+        description: getText(record[15]),
+        location: getText(record[16]),
       });
-    }
+    });
 
     if (rows.length === 0) {
       throw new BadRequestException('Tidak ada data valid di dalam file');
     }
 
-    const count = await this.createMany(rows);
-    return { imported: rows.length, count: count.count };
+    const getImportKey = (row: CreateWeighbridgeDto) => {
+      const date = this.parseDate(row.date_at);
+      return [
+        Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10),
+        row.shift?.trim() ?? '',
+        row.ticket_no?.trim() ?? '',
+        row.equipment_code.trim(),
+      ].join('|');
+    };
+
+    // Remove repeated keys from the same file before querying the database.
+    const uniqueRows = Array.from(
+      new Map(rows.map((row) => [getImportKey(row), row])).values(),
+    );
+    const persistenceRows = uniqueRows.map((row) => ({
+      date_at: this.parseDate(row.date_at),
+      shift: row.shift,
+      ticket_no: row.ticket_no,
+      equipment_code: row.equipment_code,
+      product: row.product,
+      gross: row.gross,
+      tare: row.tare,
+      net: row.net,
+      recipient: row.recipient,
+      customer: row.customer,
+      transporter: row.transporter,
+      gross_time: this.toTime(row.gross_time),
+      tare_time: this.toTime(row.tare_time),
+      gross_operator: row.gross_operator,
+      tare_operator: row.tare_operator,
+      description: row.description,
+      location: row.location,
+    }));
+    const result = await this.repository.upsertImportRows(persistenceRows);
+    const skipped = rows.length - uniqueRows.length;
+
+    return {
+      imported: uniqueRows.length,
+      count: result.created,
+      created: result.created,
+      updated: result.updated,
+      skipped,
+    };
   }
 
   async findAll(query: QueryWeighbridgeDto) {
@@ -237,13 +283,13 @@ export class WeighbridgeService {
       'description',
       'location',
     ];
-    const data: any = {};
+    const data: Prisma.weighbridgeUncheckedUpdateInput = {};
     for (const key of fields) {
       if (dto[key] !== undefined) {
         if (key === 'date_at') {
-          data[key] = new Date(dto[key] as string);
+          data[key] = this.parseDate(dto[key]);
         } else if (key === 'gross_time' || key === 'tare_time') {
-          data[key] = this.toTime(dto[key] as string);
+          data[key] = this.toTime(dto[key]);
         } else {
           data[key] = dto[key];
         }
@@ -267,6 +313,76 @@ export class WeighbridgeService {
         typeof v === 'bigint' ? v.toString() : v,
       ),
     );
+  }
+
+  private parseDate(value?: string | Date): Date {
+    if (value instanceof Date) {
+      return new Date(
+        Date.UTC(
+          value.getUTCFullYear(),
+          value.getUTCMonth(),
+          value.getUTCDate(),
+        ),
+      );
+    }
+
+    const str = (value ?? '').trim();
+    const ymd = str.match(/^([0-9]{4})[/.-]([0-9]{1,2})[/.-]([0-9]{1,2})/);
+    if (ymd) {
+      return new Date(
+        Date.UTC(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3])),
+      );
+    }
+
+    const dmy = str.match(
+      /^([0-9]{1,2})[/.-]\s*([0-9]{1,2})[/.-]\s*([0-9]{4})$/,
+    );
+    if (dmy) {
+      return new Date(
+        Date.UTC(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1])),
+      );
+    }
+
+    const parsed = new Date(str);
+    if (Number.isNaN(parsed.getTime())) return parsed;
+    return new Date(
+      Date.UTC(
+        parsed.getUTCFullYear(),
+        parsed.getUTCMonth(),
+        parsed.getUTCDate(),
+      ),
+    );
+  }
+
+  private toDatabaseDateString(year: number, month: number, day: number) {
+    return `${year}/${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}`;
+  }
+
+  private normalizeImportDate(value?: string): string | undefined {
+    const text = value?.trim();
+    if (!text) return undefined;
+
+    const dmy = text.match(
+      /^([0-9]{1,2})[/.-]\s*([0-9]{1,2})[/.-]\s*([0-9]{4})$/,
+    );
+    if (dmy) {
+      return this.toDatabaseDateString(
+        Number(dmy[3]),
+        Number(dmy[2]),
+        Number(dmy[1]),
+      );
+    }
+
+    const ymd = text.match(/^([0-9]{4})[/.-]([0-9]{1,2})[/.-]([0-9]{1,2})$/);
+    if (ymd) {
+      return this.toDatabaseDateString(
+        Number(ymd[1]),
+        Number(ymd[2]),
+        Number(ymd[3]),
+      );
+    }
+
+    return text;
   }
 
   private toTime(value?: string): Date | undefined {
