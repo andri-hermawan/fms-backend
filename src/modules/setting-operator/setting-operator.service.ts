@@ -13,6 +13,7 @@ import { EquipmentStatusRepository } from '../equipment-status/repositories/equi
 import { WebSocketGatewayService } from '../../common/websocket/websocket.gateway';
 import * as ExcelJS from 'exceljs';
 import type { Express } from 'express';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class SettingOperatorService {
@@ -142,7 +143,15 @@ export class SettingOperatorService {
             const date = new Date(excelEpoch.getTime() + val * 86400000);
             return date.toISOString().split('T')[0];
           }
-          return String(val);
+          if (
+            typeof val === 'string' ||
+            typeof val === 'number' ||
+            typeof val === 'boolean' ||
+            typeof val === 'bigint'
+          ) {
+            return String(val);
+          }
+          return undefined;
         };
         const date_at = get(1);
         const shift = get(2);
@@ -180,14 +189,58 @@ export class SettingOperatorService {
       throw new BadRequestException('Tidak ada data valid di dalam file');
     }
 
-    const count = await this.createMany(rows);
+    const rowsWithKeys = rows.map((row) => ({
+      row,
+      date_at: this.parseDate(row.date_at),
+      shift: row.shift.trim(),
+      equipment_code: row.equipment_code.trim(),
+    }));
+    const importedKeys = new Set<string>();
+    const uniqueRows = rowsWithKeys
+      .filter(({ date_at, shift, equipment_code }) => {
+        const key = this.buildImportKey(date_at, shift, equipment_code);
+        if (importedKeys.has(key)) {
+          this.logger.warn(
+            `[importExcel] dilewati karena key sudah ada: date_at=${date_at.toISOString().slice(0, 10)}, shift=${shift}, equipment_code=${equipment_code}`,
+          );
+          return false;
+        }
+        importedKeys.add(key);
+        return true;
+      })
+      .map(({ row, date_at, shift, equipment_code }) => ({
+        ...row,
+        date_at: date_at.toISOString().slice(0, 10),
+        shift,
+        equipment_code,
+      }));
+
+    if (uniqueRows.length === 0) {
+      return {
+        imported: 0,
+        count: 0,
+        created: 0,
+        updated: 0,
+        skipped: rows.length,
+      };
+    }
+
+    const result = await this.repository.upsertImportRows(
+      uniqueRows.map((row) => ({
+        date_at: this.parseDate(row.date_at),
+        shift: row.shift,
+        equipment_code: row.equipment_code,
+        operator_name: row.operator_name,
+        description: row.description,
+      })),
+    );
 
     const now = new Date();
     const todayString = new Date(
       Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
     );
 
-    for (const row of rows) {
+    for (const row of uniqueRows) {
       if (!row.operator_name) {
         continue;
       }
@@ -261,7 +314,13 @@ export class SettingOperatorService {
       }
     }
 
-    return { imported: rows.length, count: count.count };
+    return {
+      imported: uniqueRows.length,
+      count: result.created,
+      created: result.created,
+      updated: result.updated,
+      skipped: rows.length - uniqueRows.length,
+    };
   }
 
   async findAll(query: QuerySettingOperatorDto) {
@@ -331,7 +390,7 @@ export class SettingOperatorService {
     if (!existing) {
       throw new NotFoundException(`Setting operator with ID '${id}' not found`);
     }
-    const data: any = {};
+    const data: Prisma.daily_setting_operatorUncheckedUpdateInput = {};
     if (dto.date_at !== undefined) data.date_at = new Date(dto.date_at);
     if (dto.shift !== undefined) data.shift = dto.shift;
     if (dto.equipment_code !== undefined)
@@ -386,7 +445,7 @@ export class SettingOperatorService {
     const str = (value ?? '').trim();
 
     // Format hasil import YYYY/MM/DD atau YYYY-MM-DD.
-    const ymd = str.match(/^(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})/);
+    const ymd = str.match(/^(\d{4})[/.-](\d{1,2})[/.-](\d{1,2})/);
     if (ymd) {
       return new Date(
         Date.UTC(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3])),
@@ -410,5 +469,13 @@ export class SettingOperatorService {
         parsed.getUTCDate(),
       ),
     );
+  }
+
+  private buildImportKey(
+    date_at: Date | null,
+    shift: string | null,
+    equipment_code: string | null,
+  ): string {
+    return `${date_at?.toISOString().slice(0, 10)}|${shift?.trim()}|${equipment_code?.trim()}`;
   }
 }

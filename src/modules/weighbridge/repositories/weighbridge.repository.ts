@@ -35,6 +35,70 @@ export class WeighbridgeRepository {
     return await this.prisma.weighbridge.findUnique({ where: { id } });
   }
 
+  async findExistingImportKeys(
+    keys: {
+      date_at: Date;
+      shift?: string;
+      ticket_no?: string;
+      equipment_code: string;
+    }[],
+  ): Promise<
+    Pick<weighbridge, 'date_at' | 'shift' | 'ticket_no' | 'equipment_code'>[]
+  > {
+    if (keys.length === 0) return [];
+
+    return await this.prisma.weighbridge.findMany({
+      where: {
+        OR: keys.map((key) => ({
+          date_at: key.date_at,
+          shift: key.shift ?? null,
+          ticket_no: key.ticket_no ?? null,
+          equipment_code: key.equipment_code,
+        })),
+      },
+      select: {
+        date_at: true,
+        shift: true,
+        ticket_no: true,
+        equipment_code: true,
+      },
+    });
+  }
+
+  async upsertImportRows(
+    rows: Prisma.weighbridgeUncheckedCreateInput[],
+  ): Promise<{ created: number; updated: number }> {
+    return await this.prisma.$transaction(async (tx) => {
+      let created = 0;
+      let updated = 0;
+
+      for (const row of rows) {
+        const existing = await tx.weighbridge.findFirst({
+          where: {
+            date_at: row.date_at,
+            shift: row.shift ?? null,
+            ticket_no: row.ticket_no ?? null,
+            equipment_code: row.equipment_code,
+          },
+          select: { id: true },
+        });
+
+        if (existing) {
+          await tx.weighbridge.update({
+            where: { id: existing.id },
+            data: { ...row, updated_at: new Date() },
+          });
+          updated++;
+        } else {
+          await tx.weighbridge.create({ data: row });
+          created++;
+        }
+      }
+
+      return { created, updated };
+    });
+  }
+
   async update(
     id: bigint,
     data: Prisma.weighbridgeUncheckedUpdateInput,
