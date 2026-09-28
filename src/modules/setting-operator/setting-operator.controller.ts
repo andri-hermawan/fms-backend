@@ -73,7 +73,8 @@ export class SettingOperatorController {
 
   @Get('operator-name/:equipmentId')
   @ApiOperation({
-    summary: 'Mengambil operator_name berdasarkan date, equipment_id, dan shift',
+    summary:
+      'Mengambil operator_name berdasarkan date, equipment_id, dan shift',
     description:
       'equipment_id di-join lewat equipments.equipment_code -> daily_setting_operator.equipment_code. ' +
       'Filter date dan shift diterapkan pada tabel daily_setting_operator.',

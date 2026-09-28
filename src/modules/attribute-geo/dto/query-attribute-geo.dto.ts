@@ -17,7 +17,9 @@ export class QueryAttributeGeoDto {
   @Min(1)
   limit?: number = 10;
 
-  @ApiPropertyOptional({ description: 'Pencarian berdasarkan category, segment, atau code' })
+  @ApiPropertyOptional({
+    description: 'Pencarian berdasarkan category, segment, atau code',
+  })
   @IsOptional()
   @IsString()
   search?: string;

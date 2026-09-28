@@ -1,5 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString, Matches, IsUUID, IsInt, Min } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+  IsUUID,
+  IsInt,
+  Min,
+} from 'class-validator';
 
 export class CreateShiftDto {
   @ApiProperty({ example: 'DS' })

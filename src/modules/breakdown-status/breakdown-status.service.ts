@@ -1,3 +1,4 @@
+/* eslint-disable no-useless-escape */
 import {
   BadRequestException,
   Injectable,
@@ -81,6 +82,12 @@ export class BreakdownStatusService {
       lines.forEach((line, index) => {
         if (index === 0) return; // skip header
         const cols = line.split(',');
+        // console.log('[BREAKDOWN-IMPORT-RAW-DATE]', {
+        //   source: 'csv',
+        //   row: index + 1,
+        //   date_at: cols[0],
+        //   date_at_type: typeof cols[0],
+        // });
         const date_at = this.normalizeImportDate(cols[0]?.trim());
         const equipment_code = cols[2]?.trim();
         const status = cols[4]?.trim();
@@ -111,14 +118,23 @@ export class BreakdownStatusService {
           const cell = row.getCell(index);
           const value = cell.value;
 
+          console.log('[BREAKDOWN-IMPORT-RAW-DATE]', {
+            source: 'excel',
+            row: rowNumber,
+            column: index,
+            date_at: value,
+            date_at_text: cell.text,
+            date_at_type: typeof value,
+          });
+
           // 1) Cell tanggal asli dari Excel -> ExcelJS memberi objek Date (UTC).
           //    Ini tidak ambigu, jadi diprioritaskan di atas cell.text
           //    (cell.text bisa tampil M/D/YYYY tergantung format/locale).
           if (value instanceof Date) {
             const dateString = this.toDatabaseDateString(
               value.getUTCFullYear(),
-              value.getUTCDate(),
               value.getUTCMonth() + 1,
+              value.getUTCDate(),
             );
             return dateString;
           }
@@ -130,8 +146,8 @@ export class BreakdownStatusService {
             );
             const dateString = this.toDatabaseDateString(
               serialDate.getUTCFullYear(),
-              serialDate.getUTCDate(),
               serialDate.getUTCMonth() + 1,
+              serialDate.getUTCDate(),
             );
             return dateString;
           }
@@ -141,7 +157,9 @@ export class BreakdownStatusService {
             cell.text?.trim() ||
             (value === null || value === undefined
               ? undefined
-              : String(value).trim());
+              : typeof value === 'object'
+                ? undefined
+                : String(value).trim());
           if (!text) return undefined;
 
           // Sudah ISO YYYY-MM-DD -> pakai langsung.
@@ -172,7 +190,7 @@ export class BreakdownStatusService {
         const get = (index: number) =>
           row.getCell(index).value !== null &&
           row.getCell(index).value !== undefined
-            ? String(row.getCell(index).value)
+            ? row.getCell(index).text || undefined
             : undefined;
         const getTime = (index: number) => {
           const v = row.getCell(index).value;
@@ -193,7 +211,7 @@ export class BreakdownStatusService {
             const mm = (totalMinutes % 60).toString().padStart(2, '0');
             return `${hh}:${mm}`;
           }
-          return String(v);
+          return row.getCell(index).text || undefined;
         };
         const date_at = getDate(1);
         const equipment_code = get(3);
@@ -218,14 +236,45 @@ export class BreakdownStatusService {
     if (rows.length === 0) {
       throw new BadRequestException('Tidak ada data valid di dalam file');
     }
-    const count = await this.createMany(rows);
+
+    const getImportKey = (row: CreateBreakdownStatusDto) => {
+      const date = this.parseDate(row.date_at);
+      const timeStart = this.toTime(row.time_start);
+      return [
+        Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10),
+        row.shift?.trim() ?? '',
+        row.equipment_code.trim(),
+        row.category?.trim() ?? '',
+        timeStart?.toISOString() ?? '',
+      ].join('|');
+    };
+
+    // Satu file dapat berisi baris yang sama berulang kali. Baris terakhir
+    // menjadi nilai yang dipakai untuk proses update/create.
+    const uniqueRows = Array.from(
+      new Map(rows.map((row) => [getImportKey(row), row])).values(),
+    );
+    const persistenceRows = uniqueRows.map((row) => ({
+      date_at: this.parseDate(row.date_at),
+      shift: row.shift,
+      equipment_code: row.equipment_code,
+      status: row.status,
+      category: row.category,
+      time_start: this.toTime(row.time_start),
+      time_end: this.toTime(row.time_end),
+      duration: this.toTime(row.duration),
+      repair_status: row.repair_status,
+      description: row.description,
+      location: row.location,
+    }));
+    const result = await this.repository.upsertImportRows(persistenceRows);
 
     const now = new Date();
     const todayString = new Date(
       Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
     );
 
-    for (const row of rows) {
+    for (const row of uniqueRows) {
       const normalizedStatus = (row.status ?? '').trim().toLowerCase();
       const breakdownValue =
         normalizedStatus === 'breakdown' || normalizedStatus === 'continue'
@@ -240,18 +289,18 @@ export class BreakdownStatusService {
 
       const dateAt = this.parseDate(row.date_at);
 
-      console.log('[BREAKDOWN-IMPORT-ROW-START]', {
-        equipment_id: equipment?.id,
-        equipment_code: row.equipment_code,
-        raw_date_at: row.date_at,
-        raw_date_at_type: typeof row.date_at,
-        date_at: dateAt,
-        todayString,
-        shift: row.shift,
-        raw_status: row.status,
-        normalizedStatus,
-        breakdownValue,
-      });
+      // console.log('[BREAKDOWN-IMPORT-ROW-START]', {
+      //   equipment_id: equipment?.id,
+      //   equipment_code: row.equipment_code,
+      //   raw_date_at: row.date_at,
+      //   raw_date_at_type: typeof row.date_at,
+      //   date_at: dateAt,
+      //   todayString,
+      //   shift: row.shift,
+      //   raw_status: row.status,
+      //   normalizedStatus,
+      //   breakdownValue,
+      // });
 
       if (
         Number.isNaN(dateAt.getTime()) ||
@@ -314,7 +363,13 @@ export class BreakdownStatusService {
       }
     }
 
-    return { imported: rows.length, count: count.count };
+    return {
+      imported: uniqueRows.length,
+      count: result.created,
+      created: result.created,
+      updated: result.updated,
+      skipped: rows.length - uniqueRows.length,
+    };
   }
 
   async findAll(query: QueryBreakdownStatusDto) {
@@ -411,7 +466,7 @@ export class BreakdownStatusService {
     const str = (value ?? '').trim();
 
     // Format hasil import YYYY/MM/DD.
-    const ymd = str.match(/^(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})/);
+    const ymd = str.match(/^(\d{4})[/.\-](\d{1,2})[/.\-](\d{1,2})/);
     if (ymd) {
       return new Date(
         Date.UTC(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3])),
@@ -419,7 +474,7 @@ export class BreakdownStatusService {
     }
 
     // Format D/M/YYYY atau DD/MM/YYYY (standar Indonesia, pemisah / - .)
-    const dmy = str.match(/^(\d{1,2})[/\-.]\s*(\d{1,2})[/\-.]\s*(\d{4})$/);
+    const dmy = str.match(/^(\d{1,2})[/.\-]\s*(\d{1,2})[/.\-]\s*(\d{4})$/);
     if (dmy) {
       return new Date(
         Date.UTC(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1])),
