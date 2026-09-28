@@ -80,7 +80,9 @@ export class WeighbridgeService {
 
     const workbook = XLSX.read(file.buffer, {
       type: 'buffer',
-      cellDates: true,
+      // Keep Excel dates as serial numbers. Converting them to JavaScript
+      // Date objects can shift the calendar date because of the server TZ.
+      cellDates: false,
       raw: true,
     });
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -112,23 +114,21 @@ export class WeighbridgeService {
     };
     const getDate = (value: unknown) => {
       if (value instanceof Date) {
+        // SheetJS creates date cells using the local timezone. Using UTC
+        // getters here can turn 28-09-2026 into 27-09-2026 on the server.
         return this.toDatabaseDateString(
-          value.getUTCFullYear(),
-          value.getUTCMonth() + 1,
-          value.getUTCDate(),
+          value.getFullYear(),
+          value.getMonth() + 1,
+          value.getDate(),
         );
       }
       if (typeof value === 'number' && Number.isFinite(value)) {
-        const serialDate = new Date(
-          Date.UTC(1899, 11, 30) + Math.floor(value) * 86400000,
-        );
-        return this.toDatabaseDateString(
-          serialDate.getUTCFullYear(),
-          serialDate.getUTCMonth() + 1,
-          serialDate.getUTCDate(),
-        );
+        return this.excelSerialDateToDatabaseDate(value);
       }
-      return this.normalizeImportDate(getText(value));
+      const normalizedDate = this.normalizeImportDate(getText(value));
+      if (!normalizedDate) return undefined;
+
+      return normalizedDate;
     };
     const getNum = (value: unknown) => {
       if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -365,6 +365,16 @@ export class WeighbridgeService {
 
   private toDatabaseDateString(year: number, month: number, day: number) {
     return `${year}/${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}`;
+  }
+
+  private excelSerialDateToDatabaseDate(serial: number) {
+    const wholeDays = Math.floor(serial);
+    const date = new Date(Date.UTC(1899, 11, 30 + wholeDays));
+    return this.toDatabaseDateString(
+      date.getUTCFullYear(),
+      date.getUTCMonth() + 1,
+      date.getUTCDate(),
+    );
   }
 
   private normalizeImportDate(value?: string): string | undefined {
