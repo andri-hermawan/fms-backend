@@ -1,4 +1,9 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  OnModuleDestroy,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as net from 'net';
 import { TeltonikaParserService } from './teltonika-parser.service';
@@ -164,71 +169,71 @@ export class TeltonikaTcpService implements OnModuleInit, OnModuleDestroy {
                   }
 
                   // console.log(
-                  //   `[GPS] 
+                  //   `[GPS]
                   //     Latitude: ${record.latitude},
-                  //     Longitude: ${record.longitude}, 
-                  //     Altitude: ${record.altitude}, 
-                  //     Heading: ${record.heading}, 
-                  //     Satelite: ${record.satellites}, 
+                  //     Longitude: ${record.longitude},
+                  //     Altitude: ${record.altitude},
+                  //     Heading: ${record.heading},
+                  //     Satelite: ${record.satellites},
                   //     Speed: ${record.speed} km/h`,
                   // );
                   // console.log(
-                  //   `[Accelerometer] 
+                  //   `[Accelerometer]
                   //     X: ${record.accelerometer_x},
                   //     Y: ${record.accelerometer_y},
                   //     Z: ${record.accelerometer_z}`,
                   // );
                   // console.log(
-                  //   `[Vehicle] 
+                  //   `[Vehicle]
                   //     Ignition: ${record.ignition},
                   //     Odometer: ${record.odometer},
                   //   `,
                   // );
                   // console.log(
-                  //   `[Power] 
+                  //   `[Power]
                   //     Speed: ${record.speed} km/h`,
                   // );
                   // console.log(
-                  //   `[Vehicle] 
+                  //   `[Vehicle]
                   //     Ignition: ${record.ignition},
                   //     Odometer: ${record.odometer},
                   //   `,
                   // );
                   // console.log(
-                  //   `[Power] 
+                  //   `[Power]
                   //     External Voltage: ${record.external_voltage},
                   //     Internal Battery Voltage: ${record.internal_battery_voltage},
                   //     Battery Current: ${record.battery_current},
                   //   `,
                   // );
                   // console.log(
-                  //   `[GSM] 
+                  //   `[GSM]
                   //     Gsm Signal: ${record.gsm_signal},
                   //     Gsm Operator: ${record.gsm_operator},
                   //   `,
                   // );
                   // console.log(
-                  //   `[GPS Accuracy] 
+                  //   `[GPS Accuracy]
                   //     Pdop: ${record.pdop},
                   //     Hdop: ${record.hdop},
                   //     Gnss Status: ${record.gnss_status},
                   //   `,
                   // );
                   // console.log(
-                  //   `[Fuel Sensor] 
+                  //   `[Fuel Sensor]
                   //     Lls Fuel Level 1: ${record.lls_fuel_level_1},
                   //     Lls Temperature 1: ${record.lls_temperature_1},
                   //     UL202: ${record.ul202},
                   //   `,
                   // );
                   // console.log(
-                  //   `[Device] 
+                  //   `[Device]
                   //     Sleep Mode: ${record.sleep_mode},
                   //     Movement Runtime: ${record.movement_runtime},
                   //   `,
                   // );
                   // console.log(
-                  //   `[Analog] 
+                  //   `[Analog]
                   //     Analog Input 1: ${record.analog_input_1},
                   //   `,
                   // );

@@ -135,13 +135,22 @@ export class SettingOperatorService {
           const val = cell.value;
           if (val === null || val === undefined) return undefined;
           if (val instanceof Date) {
-            return val.toISOString().split('T')[0]; // YYYY-MM-DD
+            return this.toDatabaseDateString(
+              val.getUTCFullYear(),
+              val.getUTCMonth() + 1,
+              val.getUTCDate(),
+            );
           }
           if (typeof val === 'number' && val > 36526) {
             // Excel serial date number (only if > year 2000)
-            const excelEpoch = new Date(1899, 11, 30);
-            const date = new Date(excelEpoch.getTime() + val * 86400000);
-            return date.toISOString().split('T')[0];
+            const date = new Date(
+              Date.UTC(1899, 11, 30) + Math.floor(val) * 86400000,
+            );
+            return this.toDatabaseDateString(
+              date.getUTCFullYear(),
+              date.getUTCMonth() + 1,
+              date.getUTCDate(),
+            );
           }
           if (
             typeof val === 'string' ||
@@ -415,6 +424,14 @@ export class SettingOperatorService {
         typeof v === 'bigint' ? v.toString() : v,
       ),
     );
+  }
+
+  private toDatabaseDateString(
+    year: number,
+    month: number,
+    day: number,
+  ): string {
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
 
   private normalizeImportDate(value: string): string | undefined {

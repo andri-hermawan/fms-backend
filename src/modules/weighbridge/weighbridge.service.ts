@@ -139,9 +139,18 @@ export class WeighbridgeService {
     };
 
     records.slice(1).forEach((record) => {
+      console.log('[WEIGHBRIDGE-IMPORT-RAW-DATE]', {
+        raw_date_at: record[0],
+        raw_date_at_type: typeof record[0],
+      });
       const date_at = getDate(record[0]);
       const equipment_code = getText(record[3]);
       if (!date_at || !equipment_code) return;
+
+      console.log('[WEIGHBRIDGE-IMPORT-NORMALIZED-DATE]', {
+        raw_date_at: record[0],
+        date_at,
+      });
 
       rows.push({
         date_at,

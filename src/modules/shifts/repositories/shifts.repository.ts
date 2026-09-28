@@ -56,6 +56,7 @@ export class ShiftsRepository {
   }
 
   async findCurrentByProject(project_id: string, now: Date) {
+    void now;
     return this.prisma.shifts.findMany({
       where: { project_id, status: 'active' },
       orderBy: { sequence: 'asc' },

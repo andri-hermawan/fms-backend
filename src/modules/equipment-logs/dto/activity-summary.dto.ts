@@ -1,4 +1,9 @@
-import { IsNotEmpty, IsDateString, IsOptional, IsString } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsDateString,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ActivitySummaryQueryDto {

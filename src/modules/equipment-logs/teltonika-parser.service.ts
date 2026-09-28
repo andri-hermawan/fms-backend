@@ -132,7 +132,7 @@ export class TeltonikaParserService {
       // PRIORITY
       // ======================================================
 
-      const priority = data.readUInt8(offset);
+      data.readUInt8(offset);
       offset += 1;
 
       // console.log('\n[PRIORITY]');
@@ -382,6 +382,9 @@ export class TeltonikaParserService {
       ? data.readUInt16BE(offset)
       : data.readUInt8(offset);
 
+    void eventId;
+    void totalIo;
+
     offset += isExtended ? 2 : 1;
 
     // console.log('Total IO:', totalIo);
@@ -422,8 +425,6 @@ export class TeltonikaParserService {
 
         offset += idSize;
 
-        const valueOffset = offset;
-
         let value: any;
 
         if (size === 1) {
@@ -435,10 +436,6 @@ export class TeltonikaParserService {
         } else {
           value = data.readBigInt64BE(offset).toString();
         }
-
-        const rawValue = data
-          .slice(valueOffset, valueOffset + size)
-          .toString('hex');
 
         ioData[id.toString()] = value;
 
