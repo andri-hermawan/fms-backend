@@ -266,7 +266,9 @@ export class EquipmentStatusRepository {
           engine_status = EXCLUDED.engine_status,
           status = EXCLUDED.status,
           shift = EXCLUDED.shift,
-          breakdown = EXCLUDED.breakdown,
+          -- breakdown hanya diubah oleh menu breakdown-status. Payload telemetry
+          -- tidak mengirim breakdown (NULL), jadi nilai lama dipertahankan.
+          breakdown = COALESCE(EXCLUDED.breakdown, equipment_status.breakdown),
           gsm_signal = EXCLUDED.gsm_signal,
           operator_name = EXCLUDED.operator_name,
           updated_at = EXCLUDED.updated_at;
