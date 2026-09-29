@@ -18,6 +18,58 @@ export class BreakdownStatusRepository {
     return await this.prisma.breakdown_status.createMany({ data });
   }
 
+  async upsertImportRow(
+    row: Prisma.breakdown_statusUncheckedCreateInput,
+  ): Promise<{
+    record: breakdown_status;
+    created: number;
+    updated: number;
+  }> {
+    console.log('[BREAKDOWN-REPOSITORY-UPSERT-DATE-INPUT]', {
+      date_at: row.date_at,
+      date_at_iso: row.date_at instanceof Date ? row.date_at.toISOString() : String(row.date_at),
+    });
+
+    return await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.breakdown_status.findFirst({
+        where: {
+          date_at: row.date_at,
+          shift: row.shift ?? null,
+          equipment_code: row.equipment_code ?? null,
+          category: row.category ?? null,
+          time_start: row.time_start ?? null,
+        },
+      });
+
+      if (existing) {
+        const record = await tx.breakdown_status.update({
+          where: { id: existing.id },
+          data: { ...row, updated_at: new Date() },
+        });
+        console.log('[BREAKDOWN-REPOSITORY-UPSERT-DATE-UPDATED]', {
+          id: record.id.toString(),
+          date_at: record.date_at,
+          date_at_iso:
+            record.date_at instanceof Date
+              ? record.date_at.toISOString()
+              : String(record.date_at),
+        });
+        return { record, created: 0, updated: 1 };
+      }
+
+      const record = await tx.breakdown_status.create({ data: row });
+      console.log('[BREAKDOWN-REPOSITORY-UPSERT-DATE-CREATED]', {
+        id: record.id.toString(),
+        date_at: record.date_at,
+        date_at_iso:
+          record.date_at instanceof Date
+            ? record.date_at.toISOString()
+            : String(record.date_at),
+      });
+      return { record, created: 1, updated: 0 };
+    });
+  }
+
   async upsertImportRows(
     rows: Prisma.breakdown_statusUncheckedCreateInput[],
   ): Promise<{ created: number; updated: number }> {

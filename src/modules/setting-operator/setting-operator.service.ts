@@ -27,14 +27,27 @@ export class SettingOperatorService {
   ) {}
 
   async create(dto: CreateSettingOperatorDto) {
-    const data = {
-      date_at: new Date(dto.date_at),
-      shift: dto.shift,
-      equipment_code: dto.equipment_code,
-      operator_name: dto.operator_name,
-      description: dto.description,
+    const dateAt = this.parseDate(dto.date_at);
+    if (Number.isNaN(dateAt.getTime())) {
+      throw new BadRequestException('Tanggal tidak valid');
+    }
+
+    const row = {
+      date_at: dateAt,
+      shift: dto.shift.trim(),
+      equipment_code: dto.equipment_code.trim(),
+      operator_name: dto.operator_name.trim(),
+      description: dto.description?.trim(),
     };
-    return this.serialize(await this.repository.create(data));
+    const result = await this.repository.upsertImportRow(row);
+
+    await this.syncEquipmentStatusOperator(row);
+
+    return {
+      ...this.serialize(result.record),
+      created: result.created,
+      updated: result.updated,
+    };
   }
 
   async createMany(dtos: CreateSettingOperatorDto[]) {
@@ -244,83 +257,8 @@ export class SettingOperatorService {
       })),
     );
 
-    const now = new Date();
-    const todayString = new Date(
-      Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
-    );
-
     for (const row of uniqueRows) {
-      if (!row.operator_name) {
-        continue;
-      }
-
-      const dateAt = this.parseDate(row.date_at);
-
-      if (
-        Number.isNaN(dateAt.getTime()) ||
-        dateAt.getUTCFullYear() !== todayString.getUTCFullYear() ||
-        dateAt.getUTCMonth() !== todayString.getUTCMonth() ||
-        dateAt.getUTCDate() !== todayString.getUTCDate()
-      ) {
-        continue;
-      }
-
-      const equipment = await this.equipmentsRepository.findByCode(
-        row.equipment_code,
-      );
-
-      if (!equipment) {
-        this.logger.warn(
-          `[importExcel] equipment_code=${row.equipment_code} tidak ditemukan, skip update operator_name`,
-        );
-        continue;
-      }
-
-      const updatedStatus =
-        await this.equipmentStatusRepository.updateOperatorNameByDateAndShift({
-          equipment_id: equipment.id,
-          date_at: dateAt,
-          shift: row.shift,
-          operator_name: row.operator_name,
-        });
-
-      if (updatedStatus.count > 0) {
-        const equipmentStatus =
-          await this.equipmentStatusRepository.findByEquipmentId(equipment.id);
-        if (equipmentStatus) {
-          this.wsGateway.emitEquipmentStatusUpdate({
-            equipment_id: equipmentStatus.equipment_id,
-            equipment_code: equipmentStatus.equipment_code,
-            equipment_alias: equipmentStatus.equipment_alias,
-            latitude: Number(equipmentStatus.latitude),
-            longitude: Number(equipmentStatus.longitude),
-            speed: Number(equipmentStatus.speed ?? 0),
-            fuel_level: Number(equipmentStatus.fuel_level ?? 0),
-            fuel_temperature: Number(equipmentStatus.fuel_temperature ?? 0),
-            fuel_volume: Number(equipmentStatus.fuel_volume ?? 0),
-            fuel_percentage: Number(equipmentStatus.fuel_percentage ?? 0),
-            fuel_difference: Number(equipmentStatus.fuel_difference ?? 0),
-            alert_count: Number(equipmentStatus.alert_count ?? 0),
-            ignition: Boolean(equipmentStatus.engine_status),
-            status: equipmentStatus.status ?? 'UNKNOWN',
-            recorded_at: equipmentStatus.updated_at,
-            log_id: equipmentStatus.log_id?.toString(),
-            updated_at: equipmentStatus.updated_at,
-            last_update_at: equipmentStatus.updated_at,
-            is_inside: equipmentStatus.is_inside,
-            location_category: equipmentStatus.location_category,
-            segment: equipmentStatus.segment,
-            vessel: equipmentStatus.vessel,
-            mileage: equipmentStatus.mileage,
-            vessel_status: equipmentStatus.vessel_status,
-            engine_status: equipmentStatus.engine_status,
-            breakdown: equipmentStatus.breakdown,
-            gsm_signal: equipmentStatus.gsm_signal,
-            shift: equipmentStatus.shift,
-            operator_name: row.operator_name,
-          });
-        }
-      }
+      await this.syncEquipmentStatusOperator(row);
     }
 
     return {
@@ -400,14 +338,32 @@ export class SettingOperatorService {
       throw new NotFoundException(`Setting operator with ID '${id}' not found`);
     }
     const data: Prisma.daily_setting_operatorUncheckedUpdateInput = {};
-    if (dto.date_at !== undefined) data.date_at = new Date(dto.date_at);
+    if (dto.date_at !== undefined) data.date_at = this.parseDate(dto.date_at);
     if (dto.shift !== undefined) data.shift = dto.shift;
     if (dto.equipment_code !== undefined)
       data.equipment_code = dto.equipment_code;
     if (dto.operator_name !== undefined) data.operator_name = dto.operator_name;
     if (dto.description !== undefined) data.description = dto.description;
     data.updated_at = new Date();
-    return this.serialize(await this.repository.update(BigInt(id), data));
+    const record = await this.repository.update(BigInt(id), data);
+
+    // Sinkronkan perubahan ke equipment_status + socket memakai kunci yang
+    // sama seperti create/importExcel (date_at, shift, equipment_code).
+    if (
+      record.date_at &&
+      record.shift &&
+      record.equipment_code &&
+      record.operator_name
+    ) {
+      await this.syncEquipmentStatusOperator({
+        date_at: record.date_at,
+        shift: record.shift,
+        equipment_code: record.equipment_code,
+        operator_name: record.operator_name,
+      });
+    }
+
+    return this.serialize(record);
   }
 
   async remove(id: string) {
@@ -494,5 +450,85 @@ export class SettingOperatorService {
     equipment_code: string | null,
   ): string {
     return `${date_at?.toISOString().slice(0, 10)}|${shift?.trim()}|${equipment_code?.trim()}`;
+  }
+
+  private async syncEquipmentStatusOperator(row: {
+    date_at: string | Date;
+    shift: string;
+    equipment_code: string;
+    operator_name: string;
+  }) {
+    const dateAt = this.parseDate(row.date_at);
+    if (Number.isNaN(dateAt.getTime())) return;
+
+    const now = new Date();
+    const today = new Date(
+      Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
+    );
+    if (
+      dateAt.getUTCFullYear() !== today.getUTCFullYear() ||
+      dateAt.getUTCMonth() !== today.getUTCMonth() ||
+      dateAt.getUTCDate() !== today.getUTCDate()
+    ) {
+      return;
+    }
+
+    const equipment = await this.equipmentsRepository.findByCode(
+      row.equipment_code,
+    );
+    if (!equipment) {
+      this.logger.warn(
+        `[syncEquipmentStatusOperator] equipment_code=${row.equipment_code} tidak ditemukan, skip update operator_name`,
+      );
+      return;
+    }
+
+    const updatedStatus =
+      await this.equipmentStatusRepository.updateOperatorNameByDateAndShift({
+        equipment_id: equipment.id,
+        date_at: dateAt,
+        shift: row.shift,
+        operator_name: row.operator_name,
+      });
+
+    const equipmentStatus =
+      await this.equipmentStatusRepository.findByEquipmentId(equipment.id);
+    if (!equipmentStatus) return;
+
+    this.logger.log(
+      `[syncEquipmentStatusOperator] emitting socket equipment_code=${row.equipment_code}, shift=${row.shift}, updatedStatusCount=${updatedStatus.count}`,
+    );
+
+    this.wsGateway.emitEquipmentStatusUpdate({
+      equipment_id: equipmentStatus.equipment_id,
+      equipment_code: equipmentStatus.equipment_code,
+      equipment_alias: equipmentStatus.equipment_alias,
+      latitude: Number(equipmentStatus.latitude),
+      longitude: Number(equipmentStatus.longitude),
+      speed: Number(equipmentStatus.speed ?? 0),
+      fuel_level: Number(equipmentStatus.fuel_level ?? 0),
+      fuel_temperature: Number(equipmentStatus.fuel_temperature ?? 0),
+      fuel_volume: Number(equipmentStatus.fuel_volume ?? 0),
+      fuel_percentage: Number(equipmentStatus.fuel_percentage ?? 0),
+      fuel_difference: Number(equipmentStatus.fuel_difference ?? 0),
+      alert_count: Number(equipmentStatus.alert_count ?? 0),
+      ignition: Boolean(equipmentStatus.engine_status),
+      status: equipmentStatus.status ?? 'UNKNOWN',
+      recorded_at: equipmentStatus.updated_at,
+      log_id: equipmentStatus.log_id?.toString(),
+      updated_at: equipmentStatus.updated_at,
+      last_update_at: equipmentStatus.updated_at,
+      is_inside: equipmentStatus.is_inside,
+      location_category: equipmentStatus.location_category,
+      segment: equipmentStatus.segment,
+      vessel: equipmentStatus.vessel,
+      mileage: equipmentStatus.mileage,
+      vessel_status: equipmentStatus.vessel_status,
+      engine_status: equipmentStatus.engine_status,
+      breakdown: equipmentStatus.breakdown,
+      gsm_signal: equipmentStatus.gsm_signal,
+      shift: equipmentStatus.shift,
+      operator_name: row.operator_name,
+    });
   }
 }

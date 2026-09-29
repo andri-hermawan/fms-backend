@@ -24,20 +24,72 @@ export class BreakdownStatusService {
   ) {}
 
   async create(dto: CreateBreakdownStatusDto) {
+    console.log('[BREAKDOWN-CREATE-DATE-INPUT]', {
+      date_at: dto.date_at,
+      type: typeof dto.date_at,
+      parsedByNativeDate: new Date(dto.date_at).toString(),
+      parsedByNativeDateIso: new Date(dto.date_at).toISOString(),
+    });
+
+    const dateAt = this.parseDate(dto.date_at);
+    console.log('[BREAKDOWN-CREATE-DATE-PARSED]', {
+      dateAtToString: dateAt.toString(),
+      dateAtToISOString: Number.isNaN(dateAt.getTime())
+        ? 'Invalid Date'
+        : dateAt.toISOString(),
+      utcYear: dateAt.getUTCFullYear(),
+      utcMonth: dateAt.getUTCMonth() + 1,
+      utcDay: dateAt.getUTCDate(),
+      localYear: dateAt.getFullYear(),
+      localMonth: dateAt.getMonth() + 1,
+      localDay: dateAt.getDate(),
+    });
+    if (Number.isNaN(dateAt.getTime())) {
+      throw new BadRequestException('Tanggal tidak valid');
+    }
+
     const data = {
-      date_at: this.parseDate(dto.date_at),
-      shift: dto.shift,
-      equipment_code: dto.equipment_code,
-      status: dto.status,
-      category: dto.category,
+      date_at: dateAt,
+      shift: dto.shift?.trim(),
+      equipment_code: dto.equipment_code.trim(),
+      status: dto.status.trim(),
+      category: dto.category?.trim(),
       time_start: this.toTime(dto.time_start),
       time_end: this.toTime(dto.time_end),
       duration: this.toTime(dto.duration),
-      repair_status: dto.repair_status,
-      description: dto.description,
-      location: dto.location,
+      repair_status: dto.repair_status?.trim(),
+      description: dto.description?.trim(),
+      location: dto.location?.trim(),
     };
-    return this.serialize(await this.repository.create(data));
+    console.log('[BREAKDOWN-CREATE-DATE-BEFORE-UPSERT]', {
+      dateAtToISOString: data.date_at.toISOString(),
+      dateAtToString: data.date_at.toString(),
+      equipment_code: data.equipment_code,
+      shift: data.shift,
+    });
+    const result = await this.repository.upsertImportRow(data);
+    console.log('[BREAKDOWN-CREATE-DATE-AFTER-UPSERT]', {
+      inputDateToISOString: data.date_at.toISOString(),
+      returnedDateAt: result.record.date_at,
+      returnedDateAtIso:
+        result.record.date_at instanceof Date
+          ? result.record.date_at.toISOString()
+          : String(result.record.date_at),
+      created: result.created,
+      updated: result.updated,
+    });
+    await this.syncEquipmentStatusBreakdown({
+      date_at: dateAt,
+      shift: data.shift,
+      equipment_code: data.equipment_code,
+      status: data.status,
+    });
+
+    return {
+      ...this.serialize(result.record),
+      created: result.created,
+      updated: result.updated,
+    };
   }
 
   async createMany(dtos: CreateBreakdownStatusDto[]) {
@@ -269,98 +321,8 @@ export class BreakdownStatusService {
     }));
     const result = await this.repository.upsertImportRows(persistenceRows);
 
-    const now = new Date();
-    const todayString = new Date(
-      Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
-    );
-
     for (const row of uniqueRows) {
-      const normalizedStatus = (row.status ?? '').trim().toLowerCase();
-      const breakdownValue =
-        normalizedStatus === 'breakdown' || normalizedStatus === 'continue'
-          ? true
-          : normalizedStatus === 'ready'
-            ? false
-            : undefined;
-
-      const equipment = await this.equipmentsRepository.findByCode(
-        row.equipment_code,
-      );
-
-      const dateAt = this.parseDate(row.date_at);
-
-      // console.log('[BREAKDOWN-IMPORT-ROW-START]', {
-      //   equipment_id: equipment?.id,
-      //   equipment_code: row.equipment_code,
-      //   raw_date_at: row.date_at,
-      //   raw_date_at_type: typeof row.date_at,
-      //   date_at: dateAt,
-      //   todayString,
-      //   shift: row.shift,
-      //   raw_status: row.status,
-      //   normalizedStatus,
-      //   breakdownValue,
-      // });
-
-      if (
-        Number.isNaN(dateAt.getTime()) ||
-        dateAt.getUTCFullYear() !== todayString.getUTCFullYear() ||
-        dateAt.getUTCMonth() !== todayString.getUTCMonth() ||
-        dateAt.getUTCDate() !== todayString.getUTCDate()
-      ) {
-        continue;
-      }
-      if (!equipment) {
-        continue;
-      }
-      if (breakdownValue === undefined) {
-        continue;
-      }
-
-      const updatedStatus =
-        await this.equipmentStatusRepository.updateBreakdownByDateAndShift({
-          equipment_id: equipment.id,
-          date_at: dateAt,
-          shift: row.shift,
-          breakdown: breakdownValue,
-        });
-
-      if (updatedStatus.count > 0) {
-        const equipmentStatus =
-          await this.equipmentStatusRepository.findByEquipmentId(equipment.id);
-        if (equipmentStatus) {
-          this.wsGateway.emitEquipmentStatusUpdate({
-            equipment_id: equipmentStatus.equipment_id,
-            equipment_code: equipmentStatus.equipment_code,
-            equipment_alias: equipmentStatus.equipment_alias,
-            latitude: Number(equipmentStatus.latitude),
-            longitude: Number(equipmentStatus.longitude),
-            speed: Number(equipmentStatus.speed ?? 0),
-            fuel_level: Number(equipmentStatus.fuel_level ?? 0),
-            fuel_temperature: Number(equipmentStatus.fuel_temperature ?? 0),
-            fuel_volume: Number(equipmentStatus.fuel_volume ?? 0),
-            fuel_percentage: Number(equipmentStatus.fuel_percentage ?? 0),
-            fuel_difference: Number(equipmentStatus.fuel_difference ?? 0),
-            alert_count: Number(equipmentStatus.alert_count ?? 0),
-            ignition: Boolean(equipmentStatus.engine_status),
-            status: equipmentStatus.status ?? 'UNKNOWN',
-            recorded_at: equipmentStatus.updated_at,
-            log_id: equipmentStatus.log_id?.toString(),
-            updated_at: equipmentStatus.updated_at,
-            last_update_at: equipmentStatus.updated_at,
-            is_inside: equipmentStatus.is_inside,
-            location_category: equipmentStatus.location_category,
-            segment: equipmentStatus.segment,
-            vessel: equipmentStatus.vessel,
-            mileage: equipmentStatus.mileage,
-            vessel_status: equipmentStatus.vessel_status,
-            engine_status: equipmentStatus.engine_status,
-            breakdown: equipmentStatus.breakdown,
-            gsm_signal: equipmentStatus.gsm_signal,
-            shift: equipmentStatus.shift,
-          });
-        }
-      }
+      await this.syncEquipmentStatusBreakdown(row);
     }
 
     return {
@@ -435,7 +397,20 @@ export class BreakdownStatusService {
     if (dto.description !== undefined) data.description = dto.description;
     if (dto.location !== undefined) data.location = dto.location;
     data.updated_at = new Date();
-    return this.serialize(await this.repository.update(BigInt(id), data));
+    const record = await this.repository.update(BigInt(id), data);
+
+    // Sinkronkan perubahan ke equipment_status + socket memakai kunci yang
+    // sama seperti create/importExcel (date_at, shift, equipment_code, status).
+    if (record.date_at && record.equipment_code && record.status) {
+      await this.syncEquipmentStatusBreakdown({
+        date_at: record.date_at,
+        shift: record.shift ?? undefined,
+        equipment_code: record.equipment_code,
+        status: record.status,
+      });
+    }
+
+    return this.serialize(record);
   }
 
   async remove(id: string) {
@@ -459,17 +434,42 @@ export class BreakdownStatusService {
           value.getUTCFullYear(),
           value.getUTCMonth(),
           value.getUTCDate(),
+          12,
         ),
       );
     }
 
     const str = (value ?? '').trim();
 
+    // DatePicker sends an ISO timestamp. Handle it before the date-only
+    // import patterns below; otherwise the `2026-09-28` prefix is treated as
+    // the selected date and the timezone conversion is never reached.
+    if (str.includes('T')) {
+      const parsedDatePicker = new Date(str);
+      if (Number.isNaN(parsedDatePicker.getTime())) return parsedDatePicker;
+
+      const dateParts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Jakarta',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).formatToParts(parsedDatePicker);
+      const year = Number(
+        dateParts.find((part) => part.type === 'year')?.value,
+      );
+      const month = Number(
+        dateParts.find((part) => part.type === 'month')?.value,
+      );
+      const day = Number(dateParts.find((part) => part.type === 'day')?.value);
+
+      return new Date(Date.UTC(year, month - 1, day, 12));
+    }
+
     // Format hasil import YYYY/MM/DD.
     const ymd = str.match(/^(\d{4})[/.\-](\d{1,2})[/.\-](\d{1,2})/);
     if (ymd) {
       return new Date(
-        Date.UTC(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3])),
+        Date.UTC(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]), 12),
       );
     }
 
@@ -477,19 +477,29 @@ export class BreakdownStatusService {
     const dmy = str.match(/^(\d{1,2})[/.\-]\s*(\d{1,2})[/.\-]\s*(\d{4})$/);
     if (dmy) {
       return new Date(
-        Date.UTC(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1])),
+        Date.UTC(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1]), 12),
       );
     }
 
     const parsed = new Date(str);
     if (Number.isNaN(parsed.getTime())) return parsed;
-    return new Date(
-      Date.UTC(
-        parsed.getUTCFullYear(),
-        parsed.getUTCMonth(),
-        parsed.getUTCDate(),
-      ),
+
+    // DatePicker biasanya mengirim ISO timestamp UTC. Ambil tanggal pada
+    // timezone aplikasi (WIB), bukan tanggal UTC, agar 29/09 tidak menjadi
+    // 28/09 ketika timestamp-nya dikirim sebagai 28T17:00:00.000Z.
+    const dateParts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Jakarta',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(parsed);
+    const year = Number(dateParts.find((part) => part.type === 'year')?.value);
+    const month = Number(
+      dateParts.find((part) => part.type === 'month')?.value,
     );
+    const day = Number(dateParts.find((part) => part.type === 'day')?.value);
+
+    return new Date(Date.UTC(year, month - 1, day, 12));
   }
 
   private toDatabaseDateString(
@@ -539,5 +549,85 @@ export class BreakdownStatusService {
         typeof v === 'bigint' ? v.toString() : v,
       ),
     );
+  }
+
+  private async syncEquipmentStatusBreakdown(row: {
+    date_at: string | Date;
+    shift?: string;
+    equipment_code: string;
+    status: string;
+  }) {
+    const dateAt = this.parseDate(row.date_at);
+    if (Number.isNaN(dateAt.getTime())) return;
+
+    const today = this.parseDate(new Date());
+    if (
+      dateAt.getUTCFullYear() !== today.getUTCFullYear() ||
+      dateAt.getUTCMonth() !== today.getUTCMonth() ||
+      dateAt.getUTCDate() !== today.getUTCDate()
+    ) {
+      return;
+    }
+
+    const normalizedStatus = row.status.trim().toLowerCase();
+    const breakdownValue =
+      normalizedStatus === 'breakdown' ||
+      normalizedStatus === 'continue' ||
+      normalizedStatus === 'down'
+        ? true
+        : normalizedStatus === 'ready'
+          ? false
+          : undefined;
+    if (breakdownValue === undefined) return;
+
+    const equipment = await this.equipmentsRepository.findByCode(
+      row.equipment_code,
+    );
+    if (!equipment) return;
+
+    await this.equipmentStatusRepository.updateBreakdownByDateAndShift({
+      equipment_id: equipment.id,
+      date_at: dateAt,
+      shift: row.shift,
+      breakdown: breakdownValue,
+    });
+
+    const equipmentStatus =
+      await this.equipmentStatusRepository.findByEquipmentId(equipment.id);
+    if (!equipmentStatus) return;
+
+    this.wsGateway.emitEquipmentStatusUpdate({
+      equipment_id: equipmentStatus.equipment_id,
+      equipment_code: equipmentStatus.equipment_code,
+      equipment_alias: equipmentStatus.equipment_alias,
+      latitude: Number(equipmentStatus.latitude),
+      longitude: Number(equipmentStatus.longitude),
+      speed: Number(equipmentStatus.speed ?? 0),
+      fuel_level: Number(equipmentStatus.fuel_level ?? 0),
+      fuel_temperature: Number(equipmentStatus.fuel_temperature ?? 0),
+      fuel_volume: Number(equipmentStatus.fuel_volume ?? 0),
+      fuel_percentage: Number(equipmentStatus.fuel_percentage ?? 0),
+      fuel_difference: Number(equipmentStatus.fuel_difference ?? 0),
+      alert_count: Number(equipmentStatus.alert_count ?? 0),
+      ignition: Boolean(equipmentStatus.engine_status),
+      status: equipmentStatus.status ?? 'UNKNOWN',
+      recorded_at: equipmentStatus.updated_at,
+      log_id: equipmentStatus.log_id?.toString(),
+      updated_at: equipmentStatus.updated_at,
+      last_update_at: equipmentStatus.updated_at,
+      is_inside: equipmentStatus.is_inside,
+      location_category: equipmentStatus.location_category,
+      segment: equipmentStatus.segment,
+      vessel: equipmentStatus.vessel,
+      mileage: equipmentStatus.mileage,
+      vessel_status: equipmentStatus.vessel_status,
+      engine_status: equipmentStatus.engine_status,
+      // Gunakan nilai dari status import secara langsung. Nilai dari query
+      // equipment status dapat berasal dari baris status lain karena query
+      // tersebut hanya mengambil satu baris.
+      breakdown: breakdownValue,
+      gsm_signal: equipmentStatus.gsm_signal,
+      shift: equipmentStatus.shift,
+    });
   }
 }

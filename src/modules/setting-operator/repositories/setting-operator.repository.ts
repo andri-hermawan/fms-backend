@@ -18,6 +18,39 @@ export class SettingOperatorRepository {
     return await this.prisma.daily_setting_operator.createMany({ data });
   }
 
+  async upsertImportRow(
+    row: Prisma.daily_setting_operatorUncheckedCreateInput,
+  ): Promise<{
+    record: daily_setting_operator;
+    created: number;
+    updated: number;
+  }> {
+    return await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.daily_setting_operator.findFirst({
+        where: {
+          date_at: row.date_at,
+          shift: row.shift,
+          equipment_code: row.equipment_code,
+        },
+      });
+
+      if (existing) {
+        const record = await tx.daily_setting_operator.update({
+          where: { id: existing.id },
+          data: {
+            operator_name: row.operator_name,
+            description: row.description,
+            updated_at: new Date(),
+          },
+        });
+        return { record, created: 0, updated: 1 };
+      }
+
+      const record = await tx.daily_setting_operator.create({ data: row });
+      return { record, created: 1, updated: 0 };
+    });
+  }
+
   async findExistingKeys(
     keys: Array<{
       date_at: Date;

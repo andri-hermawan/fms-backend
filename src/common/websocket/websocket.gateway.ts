@@ -69,6 +69,12 @@ export class WebSocketGatewayService
 
   // Emit equipment status update
   emitEquipmentStatusUpdate(data: any) {
+    if (!this.server) {
+      this.logger.warn(
+        'Equipment status update socket skipped because WebSocket server is not initialized',
+      );
+      return;
+    }
     this.server.emit('equipment-status-update', data);
   }
 
