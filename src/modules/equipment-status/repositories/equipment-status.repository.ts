@@ -24,7 +24,7 @@ export class EquipmentStatusRepository {
     const normalizedShift =
       typeof params.shift === 'string' ? params.shift.trim() : params.shift;
 
-    return this.prisma.equipment_status.updateMany({
+    const updatedByDate = await this.prisma.equipment_status.updateMany({
       where: {
         equipment_id: params.equipment_id,
         ...(normalizedShift ? { shift: normalizedShift } : {}),
@@ -32,6 +32,25 @@ export class EquipmentStatusRepository {
           gte: startOfDay,
           lte: endOfDay,
         },
+      },
+      data: {
+        breakdown: params.breakdown,
+        updated_at: new Date(),
+      },
+    });
+
+    if (updatedByDate.count > 0) {
+      return updatedByDate;
+    }
+
+    // equipment_status menyimpan satu baris status terkini per equipment.
+    // created_at adalah waktu log terakhir dari device, sehingga bisa berbeda
+    // dari tanggal breakdown (misal belum ada log baru hari ini). Jika filter
+    // tanggal tidak menemukan baris, update baris status terkini equipment
+    // tersebut agar perubahan breakdown/ready tidak hilang saat refresh.
+    return this.prisma.equipment_status.updateMany({
+      where: {
+        equipment_id: params.equipment_id,
       },
       data: {
         breakdown: params.breakdown,
@@ -59,7 +78,7 @@ export class EquipmentStatusRepository {
     const normalizedShift =
       typeof params.shift === 'string' ? params.shift.trim() : params.shift;
 
-    return this.prisma.equipment_status.updateMany({
+    const updatedByDate = await this.prisma.equipment_status.updateMany({
       where: {
         equipment_id: params.equipment_id,
         ...(normalizedShift ? { shift: normalizedShift } : {}),
@@ -67,6 +86,25 @@ export class EquipmentStatusRepository {
           gte: startOfDay,
           lte: endOfDay,
         },
+      },
+      data: {
+        operator_name: params.operator_name,
+        updated_at: new Date(),
+      },
+    });
+
+    if (updatedByDate.count > 0) {
+      return updatedByDate;
+    }
+
+    // Sama seperti breakdown: equipment_status menyimpan satu baris status
+    // terkini per equipment dan created_at berasal dari log device terakhir,
+    // sehingga bisa berbeda dari tanggal setting operator. Jika filter
+    // tanggal/shift tidak menemukan baris, update baris status terkini
+    // equipment tersebut agar operator_name tidak hilang saat refresh.
+    return this.prisma.equipment_status.updateMany({
+      where: {
+        equipment_id: params.equipment_id,
       },
       data: {
         operator_name: params.operator_name,
@@ -118,7 +156,13 @@ export class EquipmentStatusRepository {
 
     let date: Date;
     if (value instanceof Date) {
-      date = new Date(value);
+      // Date-only values are stored as UTC dates. Read UTC components so a
+      // server timezone cannot move the target day to the previous date.
+      date = new Date(
+        value.getUTCFullYear(),
+        value.getUTCMonth(),
+        value.getUTCDate(),
+      );
     } else {
       const str = value.trim();
       // Format DD/MM/YYYY atau D/M/YYYY (dengan pemisah / - . )
