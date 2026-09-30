@@ -543,18 +543,9 @@ export class EquipmentLogsService {
     shiftName?: string | null,
   ) {
     try {
-      // STEP 8.1: Count unread daily alerts before updating the snapshot.
-
-      const startOfDay = new Date(currentTime);
-      startOfDay.setHours(0, 0, 0, 0);
-
-      const alertCount = await this.alertRepo.count({
-        where: {
-          equipment_id: dto.equipment_id,
-          is_read: false,
-          created_at: { gte: startOfDay },
-        },
-      });
+      // STEP 8.1: alert_count is managed by incrementAlertCount when a new
+      // alert is created. Telemetry updates must not overwrite it, even when
+      // the frontend marks notifications as read.
       await this.equipmentStatusService.updateStatus({
         // Push the latest equipment state, location, geofence, and counters.
         equipment_id: dto.equipment_id,
@@ -583,11 +574,15 @@ export class EquipmentLogsService {
         gsm_signal: dto.gsm_signal ?? 0,
         shift: shiftName,
         operator_name: savedLog.operator_name,
-        alert_count: alertCount,
         last_update_at: savedLog.created_at,
       });
 
-      // Emit equipment status update via WebSocket
+      // Emit equipment status update via WebSocket.
+      // alert_count is read from the DB so the frontend always sees the
+      // latest value managed by incrementAlertCount.
+      const currentStatus = await this.equipmentStatusService.findByEquipmentId(
+        dto.equipment_id!,
+      );
       this.wsGateway.emitEquipmentStatusUpdate({
         equipment_id: dto.equipment_id,
         equipment_code: equipmentCode,
@@ -611,7 +606,7 @@ export class EquipmentLogsService {
         gsm_signal: dto.gsm_signal ?? 0,
         shift: shiftName,
         operator_name: savedLog.operator_name,
-        alert_count: alertCount,
+        alert_count: Number(currentStatus?.alert_count ?? 0),
         last_update_at: currentTime,
       });
 
@@ -695,7 +690,12 @@ export class EquipmentLogsService {
               info,
             ),
           });
-          await this.equipmentStatusService.incrementAlertCount(equipmentId, 1);
+          await this.equipmentStatusService.incrementAlertCount(
+            equipmentId,
+            1,
+            currentTime,
+            info.shift,
+          );
 
           // Emit alert via WebSocket
           this.wsGateway.emitNewAlert({
@@ -713,6 +713,9 @@ export class EquipmentLogsService {
 
           // Emit alert summary update via WebSocket
           await this.emitAlertSummaryUpdate(currentTime);
+
+          // Push updated equipment status (with new alert_count) to frontend
+          await this.emitEquipmentStatusAfterAlert(equipmentId);
 
           // this.logger.log(
           //   `New off-track alert created for ${info.equipment_code}.`,
@@ -826,7 +829,12 @@ export class EquipmentLogsService {
           ),
           resolved_at: currentTime,
         });
-        await this.equipmentStatusService.incrementAlertCount(equipmentId, 1);
+        await this.equipmentStatusService.incrementAlertCount(
+          equipmentId,
+          1,
+          currentTime,
+          info.shift,
+        );
 
         // Emit alert via WebSocket
         this.wsGateway.emitNewAlert({
@@ -844,6 +852,9 @@ export class EquipmentLogsService {
 
         // Emit alert summary update via WebSocket
         await this.emitAlertSummaryUpdate(currentTime);
+
+        // Push updated equipment status (with new alert_count) to frontend
+        await this.emitEquipmentStatusAfterAlert(equipmentId);
 
         // this.logger.log(
         //   `New ${alertName.toLowerCase()} alert created for ${info.equipment_code}.`,
@@ -1145,7 +1156,12 @@ export class EquipmentLogsService {
             ),
             resolved_at: currentTime,
           });
-          await this.equipmentStatusService.incrementAlertCount(equipmentId, 1);
+          await this.equipmentStatusService.incrementAlertCount(
+            equipmentId,
+            1,
+            currentTime,
+            info.shift,
+          );
 
           // Emit alert via WebSocket
           this.wsGateway.emitNewAlert({
@@ -1165,6 +1181,9 @@ export class EquipmentLogsService {
 
           // Emit alert summary update via WebSocket
           await this.emitAlertSummaryUpdate(currentTime);
+
+          // Push updated equipment status (with new alert_count) to frontend
+          await this.emitEquipmentStatusAfterAlert(equipmentId);
 
           // this.logger.log(
           //   `[Fuel Alert] ${eventType} alert created for ${info.equipment_code}`,
@@ -1194,6 +1213,46 @@ export class EquipmentLogsService {
     } catch (e: unknown) {
       this.logger.error(
         `Alert Summary Error: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
+
+  // Emit equipment-status-update so the frontend receives the latest
+  // alert_count right after an alert is created and incrementAlertCount runs.
+  private async emitEquipmentStatusAfterAlert(equipmentId: string) {
+    try {
+      const status =
+        await this.equipmentStatusService.findByEquipmentId(equipmentId);
+      if (!status) return;
+      this.wsGateway.emitEquipmentStatusUpdate({
+        equipment_id: status.equipment_id,
+        equipment_code: status.equipment_code,
+        engine_status: status.engine_status,
+        longitude: Number(status.longitude),
+        latitude: Number(status.latitude),
+        location_category: status.location_category,
+        segment: status.segment,
+        is_inside: status.is_inside,
+        orig_fid: status.orig_fid,
+        speed: Number(status.speed ?? 0),
+        fuel_level: Number(status.fuel_level ?? 0),
+        fuel_volume: Number(status.fuel_volume ?? 0),
+        fuel_percentage: Number(status.fuel_percentage ?? 0),
+        fuel_difference: Number(status.fuel_difference ?? 0),
+        fuel_temperature: Number(status.fuel_temperature ?? 0),
+        vessel: status.vessel,
+        mileage: status.mileage,
+        vessel_status: status.vessel_status,
+        status: status.status,
+        gsm_signal: status.gsm_signal,
+        shift: status.shift,
+        operator_name: status.operator_name,
+        alert_count: Number(status.alert_count ?? 0),
+        last_update_at: status.updated_at,
+      });
+    } catch (e: unknown) {
+      this.logger.error(
+        `Emit Equipment Status Error: ${e instanceof Error ? e.message : String(e)}`,
       );
     }
   }

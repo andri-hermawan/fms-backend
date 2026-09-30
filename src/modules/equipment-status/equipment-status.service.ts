@@ -62,7 +62,16 @@ export class EquipmentStatusService {
     return await this.repository.upsertStatus(dto);
   }
 
-  async incrementAlertCount(equipmentId: string, amount: number) {
-    return this.repository.incrementAlertCount(equipmentId, amount);
+  async findByEquipmentId(equipment_id: string) {
+    return await this.repository.findByEquipmentId(equipment_id);
+  }
+
+  async incrementAlertCount(
+    equipmentId: string,
+    amount: number,
+    date: Date,
+    shift?: string | null,
+  ) {
+    return this.repository.incrementAlertCount(equipmentId, amount, date, shift);
   }
 }

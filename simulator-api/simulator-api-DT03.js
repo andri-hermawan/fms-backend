@@ -14,7 +14,7 @@ const axios = require("axios");
 const BASE_URL =
   "http://localhost:3346/fms/api/equipment-logs";
 
-const BEARER_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFuZHJpLmhlcm1hd2FuQGZtcy5jb20iLCJzdWIiOiIwYjEwNzA1ZS01NDVjLTQ1N2QtODg2Mi01MzM1NjYwMmQ1N2MiLCJyb2xlIjoic3VwZXJhZG1pbiIsImlhdCI6MTc5MDIyNTE0MywiZXhwIjoxNzkwMzExNTQzfQ.8uqeZzQCJ0iGK2Y6st-XRB545nT_Ok7FVVgF7pYXQn0";
+const BEARER_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFuZHJpLmhlcm1hd2FuQGZtcy5jb20iLCJzdWIiOiIwYjEwNzA1ZS01NDVjLTQ1N2QtODg2Mi01MzM1NjYwMmQ1N2MiLCJyb2xlIjoic3VwZXJhZG1pbiIsImlhdCI6MTc5MDc0NDQ1NywiZXhwIjoxNzkwODMwODU3fQ.wUpcAjTD5KSs859H1kwwdLDDdOdL3iVr_9m8umgYXw8";
 // const BEARER_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFuZHJpLmhlcm1hd2FuQGZtcy5jb20iLCJzdWIiOiIwYjEwNzA1ZS01NDVjLTQ1N2QtODg2Mi01MzM1NjYwMmQ1N2MiLCJyb2xlIjoic3VwZXJhZG1pbiIsImlhdCI6MTc4NzkwMDQ5MiwiZXhwIjoxNzg3OTg2ODkyfQ.T0nDza1YfBX_opv7fZoOkt1zFX35BPwysRBf-QNpMy8";
 
 const EQUIPMENT_ID = "f070646a-2ff8-416a-bb9f-f5f940ddb4c3";
@@ -3495,8 +3495,8 @@ const scenario = [
 const scenarioUpdates = [
   [true, 1950, 0], [true, 1949.025, 0], [true, 1948.05, 0], [true, 1947.075, 0],
   [true, 1946.1, 0], [true, 1943.175, 10], [true, 1940.25, 20], [true, 1937.325, 30],
-  [true, 1934.4, 30], [true, 1931.475, 30], [true, 1928.55, 30], [true, 1925.625, 30],
-  [true, 1922.7, 30], [true, 1919.775, 30], [true, 1916.85, 30], [true, 1913.925, 30],
+  [true, 1934.4, 57], [true, 1931.475, 57], [true, 1928.55, 57], [true, 1925.625, 57],
+  [true, 1922.7, 57], [true, 1919.775, 57], [true, 1916.85, 57], [true, 1913.925, 57],
   [true, 1911, 30], [true, 1908.075, 30], [true, 1905.15, 20], [true, 1902.225, 10],
   [true, 1901.25, 0], [true, 2193.75, 0], [true, 2486.25, 0], [true, 2778.75, 0],
   [true, 3071.25, 0], [true, 3070.275, 0], [true, 3069.3, 0], [true, 3066.375, 10],
@@ -3522,8 +3522,8 @@ const scenarioUpdates = [
   [false, 2728.05, 0], [false, 2728.05, 0], [true, 2728.05, 10], [true, 2630.55, 20],
   [true, 2627.625, 30], [true, 2624.7, 30], [true, 2621.775, 30], [true, 2618.85, 30],
   [true, 2615.925, 30], [true, 2613, 30], [true, 2610.075, 30], [true, 2607.15, 30],
-  [true, 2604.225, 30], [true, 2601.3, 20], [true, 2598.375, 30], [true, 2595.45, 30],
-  [true, 2592.525, 30], [true, 2589.6, 30], [true, 2586.675, 30], [true, 2583.75, 30],
+  [true, 2604.225, 9], [true, 2601.3, 20], [true, 2598.375, 9], [true, 2595.45, 9],
+  [true, 2592.525, 9], [true, 2589.6, 9], [true, 2586.675, 9], [true, 2583.75, 9],
   [true, 2580.825, 30], [true, 2577.9, 20], [true, 2574.975, 10], [true, 2574, 0],
   [true, 2541.375, 0], [true, 2508.76, 0], [true, 2476.14, 0], [true, 2443.52, 0],
   [true, 2410.09, 0], [true, 2378.28, 0], [true, 2371.625, 0], [true, 2470.65, 0],
@@ -3539,7 +3539,7 @@ scenario.forEach((item, index) => {
   Object.assign(item, { engine_status, fuel_level, speed });
 });
 
-const scenarioStart = new Date("2026-09-25T07:05:00");
+const scenarioStart = new Date("2026-09-30T07:05:00");
 
 function formatTimestamp(date) {
   const pad = (value) => String(value).padStart(2, "0");
