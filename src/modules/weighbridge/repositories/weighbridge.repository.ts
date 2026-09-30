@@ -38,29 +38,21 @@ export class WeighbridgeRepository {
   async findExistingImportKeys(
     keys: {
       date_at: Date;
-      shift?: string;
       ticket_no?: string;
-      equipment_code: string;
     }[],
-  ): Promise<
-    Pick<weighbridge, 'date_at' | 'shift' | 'ticket_no' | 'equipment_code'>[]
-  > {
+  ): Promise<Pick<weighbridge, 'date_at' | 'ticket_no'>[]> {
     if (keys.length === 0) return [];
 
     return await this.prisma.weighbridge.findMany({
       where: {
         OR: keys.map((key) => ({
           date_at: key.date_at,
-          shift: key.shift ?? null,
           ticket_no: key.ticket_no ?? null,
-          equipment_code: key.equipment_code,
         })),
       },
       select: {
         date_at: true,
-        shift: true,
         ticket_no: true,
-        equipment_code: true,
       },
     });
   }
@@ -76,9 +68,7 @@ export class WeighbridgeRepository {
         const existing = await tx.weighbridge.findFirst({
           where: {
             date_at: row.date_at,
-            shift: row.shift ?? null,
             ticket_no: row.ticket_no ?? null,
-            equipment_code: row.equipment_code,
           },
           select: { id: true },
         });

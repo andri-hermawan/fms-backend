@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import { IsDateString, IsOptional, IsString } from 'class-validator';
 
 export class CreateBreakdownStatusDto {
@@ -39,8 +40,14 @@ export class CreateBreakdownStatusDto {
   @IsString()
   time_end?: string;
 
-  @ApiPropertyOptional({ example: '02:30' })
+  @ApiPropertyOptional({
+    example: 2.5,
+    description: 'Durasi dalam jam (decimal)',
+  })
   @IsOptional()
+  @Transform(({ value }) =>
+    value === undefined || value === null ? value : String(value),
+  )
   @IsString()
   duration?: string;
 

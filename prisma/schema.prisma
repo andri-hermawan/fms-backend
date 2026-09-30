@@ -176,6 +176,7 @@ model equipment_status {
   updated_at        DateTime?                @db.Timestamp(6)
   updated_by        String?                  @db.Uuid
   alert_count       Int?
+  alert_date        DateTime?                @db.Date
   fuel_temperature  Decimal?                 @db.Decimal(10, 2)
   fuel_volume       Decimal?                 @db.Decimal(10, 2)
   fuel_percentage   Decimal?                 @db.Decimal(10, 2)
@@ -394,7 +395,7 @@ model breakdown_status {
   category       String?   @db.VarChar(50)
   time_start     DateTime? @db.Time(6)
   time_end       DateTime? @db.Time(6)
-  duration       DateTime? @db.Time(6)
+  duration       Decimal?  @db.Decimal(10, 2)
   repair_status  String?   @db.VarChar(30)
   description    String?   @db.VarChar(255)
   location       String?   @db.VarChar(100)

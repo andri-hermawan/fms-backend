@@ -181,9 +181,7 @@ export class WeighbridgeService {
       const date = this.parseDate(row.date_at);
       return [
         Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10),
-        row.shift?.trim() ?? '',
         row.ticket_no?.trim() ?? '',
-        row.equipment_code.trim(),
       ].join('|');
     };
 

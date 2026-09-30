@@ -209,7 +209,6 @@ export class EquipmentStatusRepository {
         fuel_volume,
         fuel_percentage,
         fuel_difference,
-        alert_count,
         vessel,
         mileage,
         vessel_status,
@@ -234,7 +233,6 @@ export class EquipmentStatusRepository {
         ${rest.fuel_volume},
         ${rest.fuel_percentage},
         ${rest.fuel_difference},
-        ${rest.alert_count},
         ${rest.vessel},
         ${rest.mileage},
         ${rest.vessel_status},
@@ -259,7 +257,8 @@ export class EquipmentStatusRepository {
           fuel_volume = EXCLUDED.fuel_volume,
           fuel_percentage = EXCLUDED.fuel_percentage,
           fuel_difference = EXCLUDED.fuel_difference,
-          alert_count = EXCLUDED.alert_count,
+          -- alert_count, alert_date, dan alert_shift hanya diubah oleh
+          -- incrementAlertCount saat alert baru tercipta.
           vessel = EXCLUDED.vessel,
           mileage = EXCLUDED.mileage,
           vessel_status = EXCLUDED.vessel_status,
@@ -275,11 +274,33 @@ export class EquipmentStatusRepository {
       `;
   }
 
-  async incrementAlertCount(equipment_id: string, amount: number) {
+  async incrementAlertCount(
+    equipment_id: string,
+    amount: number,
+    date: Date,
+    shift?: string | null,
+  ) {
+    const normalizedDate = new Date(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      12,
+      0,
+      0,
+      0,
+    );
+    const normalizedShift = shift?.trim() || null;
+
     return this.prisma.$executeRaw`
       UPDATE equipment_status
-      SET alert_count = GREATEST(COALESCE(alert_count, 0) + ${amount}, 0),
-          updated_at = NOW()
+      SET alert_count = CASE
+          WHEN COALESCE(alert_date, DATE '1900-01-01') <> ${normalizedDate}::date
+            OR NULLIF(shift, '') IS DISTINCT FROM ${normalizedShift}
+          THEN GREATEST(${amount}, 0)
+          ELSE GREATEST(COALESCE(alert_count, 0) + ${amount}, 0)
+        END,
+        alert_date = ${normalizedDate}::date,
+        updated_at = NOW()
       WHERE equipment_id = ${equipment_id}::uuid;
     `;
   }

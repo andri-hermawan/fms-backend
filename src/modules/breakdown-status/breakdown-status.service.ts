@@ -13,6 +13,7 @@ import { EquipmentStatusRepository } from '../equipment-status/repositories/equi
 import { WebSocketGatewayService } from '../../common/websocket/websocket.gateway';
 import * as ExcelJS from 'exceljs';
 import type { Express } from 'express';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class BreakdownStatusService {
@@ -48,6 +49,7 @@ export class BreakdownStatusService {
       throw new BadRequestException('Tanggal tidak valid');
     }
 
+    const durationNum = this.toDuration(dto.duration);
     const data = {
       date_at: dateAt,
       shift: dto.shift?.trim(),
@@ -56,7 +58,7 @@ export class BreakdownStatusService {
       category: dto.category?.trim(),
       time_start: this.toTime(dto.time_start),
       time_end: this.toTime(dto.time_end),
-      duration: this.toTime(dto.duration),
+      duration: durationNum !== undefined ? String(durationNum) : undefined,
       repair_status: dto.repair_status?.trim(),
       description: dto.description?.trim(),
       location: dto.location?.trim(),
@@ -93,19 +95,22 @@ export class BreakdownStatusService {
   }
 
   async createMany(dtos: CreateBreakdownStatusDto[]) {
-    const data = dtos.map((dto) => ({
-      date_at: this.parseDate(dto.date_at),
-      shift: dto.shift,
-      equipment_code: dto.equipment_code,
-      status: dto.status,
-      category: dto.category,
-      time_start: this.toTime(dto.time_start),
-      time_end: this.toTime(dto.time_end),
-      duration: this.toTime(dto.duration),
-      repair_status: dto.repair_status,
-      description: dto.description,
-      location: dto.location,
-    }));
+    const data = dtos.map((dto) => {
+      const durationNum = this.toDuration(dto.duration);
+      return {
+        date_at: this.parseDate(dto.date_at),
+        shift: dto.shift,
+        equipment_code: dto.equipment_code,
+        status: dto.status,
+        category: dto.category,
+        time_start: this.toTime(dto.time_start),
+        time_end: this.toTime(dto.time_end),
+        duration: durationNum !== undefined ? String(durationNum) : undefined,
+        repair_status: dto.repair_status,
+        description: dto.description,
+        location: dto.location,
+      };
+    });
     const result = await this.repository.createMany(data);
     return { count: result.count };
   }
@@ -161,7 +166,11 @@ export class BreakdownStatusService {
       });
     } else {
       const workbook = new ExcelJS.Workbook();
-      await workbook.xlsx.load(file.buffer as any);
+      await workbook.xlsx.load(
+        Buffer.from(file.buffer) as unknown as Parameters<
+          typeof workbook.xlsx.load
+        >[0],
+      );
       const worksheet = workbook.worksheets[0];
 
       worksheet.eachRow((row, rowNumber) => {
@@ -265,6 +274,20 @@ export class BreakdownStatusService {
           }
           return row.getCell(index).text || undefined;
         };
+        const getDuration = (index: number) => {
+          const cell = row.getCell(index);
+          const value = cell.value;
+          if (value === null || value === undefined) return undefined;
+          // Angka langsung (jam desimal)
+          if (typeof value === 'number') return String(value);
+          // Excel time disimpan sebagai Date (UTC)
+          if (value instanceof Date) {
+            const hours = value.getUTCHours() + value.getUTCMinutes() / 60;
+            return hours.toFixed(2);
+          }
+          // Teks: bisa "HH:MM" atau "2.5"
+          return cell.text || undefined;
+        };
         const date_at = getDate(1);
         const equipment_code = get(3);
         const status = get(5);
@@ -277,7 +300,7 @@ export class BreakdownStatusService {
           category: get(6),
           time_start: getTime(7),
           time_end: getTime(8),
-          duration: getTime(9),
+          duration: getDuration(9),
           repair_status: get(10),
           description: get(11),
           location: get(12),
@@ -306,19 +329,22 @@ export class BreakdownStatusService {
     const uniqueRows = Array.from(
       new Map(rows.map((row) => [getImportKey(row), row])).values(),
     );
-    const persistenceRows = uniqueRows.map((row) => ({
-      date_at: this.parseDate(row.date_at),
-      shift: row.shift,
-      equipment_code: row.equipment_code,
-      status: row.status,
-      category: row.category,
-      time_start: this.toTime(row.time_start),
-      time_end: this.toTime(row.time_end),
-      duration: this.toTime(row.duration),
-      repair_status: row.repair_status,
-      description: row.description,
-      location: row.location,
-    }));
+    const persistenceRows = uniqueRows.map((row) => {
+      const durationNum = this.toDuration(row.duration);
+      return {
+        date_at: this.parseDate(row.date_at),
+        shift: row.shift,
+        equipment_code: row.equipment_code,
+        status: row.status,
+        category: row.category,
+        time_start: this.toTime(row.time_start),
+        time_end: this.toTime(row.time_end),
+        duration: durationNum !== undefined ? String(durationNum) : undefined,
+        repair_status: row.repair_status,
+        description: row.description,
+        location: row.location,
+      };
+    });
     const result = await this.repository.upsertImportRows(persistenceRows);
 
     for (const row of uniqueRows) {
@@ -382,7 +408,7 @@ export class BreakdownStatusService {
     if (!existing) {
       throw new NotFoundException(`Breakdown status with ID '${id}' not found`);
     }
-    const data: any = {};
+    const data: Prisma.breakdown_statusUncheckedUpdateInput = {};
     if (dto.date_at !== undefined) data.date_at = this.parseDate(dto.date_at);
     if (dto.shift !== undefined) data.shift = dto.shift;
     if (dto.equipment_code !== undefined)
@@ -392,7 +418,10 @@ export class BreakdownStatusService {
     if (dto.time_start !== undefined)
       data.time_start = this.toTime(dto.time_start);
     if (dto.time_end !== undefined) data.time_end = this.toTime(dto.time_end);
-    if (dto.duration !== undefined) data.duration = this.toTime(dto.duration);
+    if (dto.duration !== undefined) {
+      const durationNum = this.toDuration(dto.duration);
+      data.duration = durationNum !== undefined ? String(durationNum) : undefined;
+    }
     if (dto.repair_status !== undefined) data.repair_status = dto.repair_status;
     if (dto.description !== undefined) data.description = dto.description;
     if (dto.location !== undefined) data.location = dto.location;
@@ -541,6 +570,27 @@ export class BreakdownStatusService {
     if (isNaN(h)) return undefined;
     // Gunakan UTC agar jam yang disimpan sesuai nilai, tanpa geser timezone
     return new Date(Date.UTC(1970, 0, 1, h, m || 0, 0, 0));
+  }
+
+  /** Normalize a duration to decimal hours for PostgreSQL NUMERIC(10,2). */
+  private toDuration(value?: string | number): number | undefined {
+    if (value === undefined || String(value).trim() === '') return undefined;
+    const text = String(value).trim();
+    let duration: number;
+    const time = text.match(/^(\d+):(\d{1,2})$/);
+    if (time) {
+      const minutes = Number(time[2]);
+      if (minutes > 59) {
+        throw new BadRequestException('Durasi HH:MM tidak valid');
+      }
+      duration = Number(time[1]) + minutes / 60;
+    } else {
+      duration = Number(text.replace(',', '.'));
+    }
+    if (!Number.isFinite(duration) || duration < 0 || duration > 99999999.99) {
+      throw new BadRequestException('Durasi harus berupa angka jam yang valid');
+    }
+    return Number(duration.toFixed(2));
   }
 
   private serialize(value: any) {
