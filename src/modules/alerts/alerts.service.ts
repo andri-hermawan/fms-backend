@@ -77,11 +77,11 @@ export class AlertsService {
       where.created_at = {};
 
       if (created_at) {
-        where.created_at.gte = new Date(`${created_at}T00:00:00.000Z`);
+        where.created_at.gte = new Date(`${created_at}T00:00:00.000+07:00`);
       }
 
       if (created_at_end) {
-        where.created_at.lte = new Date(`${created_at_end}T23:59:59.999Z`);
+        where.created_at.lte = new Date(`${created_at_end}T23:59:59.999+07:00`);
       }
     }
 
