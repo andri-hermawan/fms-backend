@@ -214,6 +214,8 @@ export class EquipmentStatusRepository {
         vessel_status,
         engine_status,
         status,
+        alert_count,
+        alert_date,
         shift,
         breakdown,
         gsm_signal,
@@ -238,6 +240,8 @@ export class EquipmentStatusRepository {
         ${rest.vessel_status},
         ${rest.engine_status},
         ${rest.status},
+        0,
+        ${rest.alert_date ?? null}::date,
         ${rest.shift || null},
         ${rest.breakdown ?? null},
         ${rest.gsm_signal ?? null},
@@ -257,8 +261,22 @@ export class EquipmentStatusRepository {
           fuel_volume = EXCLUDED.fuel_volume,
           fuel_percentage = EXCLUDED.fuel_percentage,
           fuel_difference = EXCLUDED.fuel_difference,
-          -- alert_count, alert_date, dan alert_shift hanya diubah oleh
-          -- incrementAlertCount saat alert baru tercipta.
+          -- Reset alert_count hanya saat periode operasional berubah;
+          -- alert baru tetap menambah counter melalui incrementAlertCount.
+          alert_count = CASE
+            WHEN ${rest.alert_date ?? null}::date IS NOT NULL
+              AND (
+                equipment_status.alert_date IS DISTINCT FROM ${rest.alert_date ?? null}::date
+                OR NULLIF(BTRIM(equipment_status.shift), '')
+                  IS DISTINCT FROM NULLIF(BTRIM(EXCLUDED.shift), '')
+              )
+            THEN 0
+            ELSE COALESCE(equipment_status.alert_count, 0)
+          END,
+          alert_date = COALESCE(
+            ${rest.alert_date ?? null}::date,
+            equipment_status.alert_date
+          ),
           vessel = EXCLUDED.vessel,
           mileage = EXCLUDED.mileage,
           vessel_status = EXCLUDED.vessel_status,
@@ -277,25 +295,20 @@ export class EquipmentStatusRepository {
   async incrementAlertCount(
     equipment_id: string,
     amount: number,
-    date: Date,
+    date: Date | string,
     shift?: string | null,
   ) {
-    const normalizedDate = new Date(
-      date.getUTCFullYear(),
-      date.getUTCMonth(),
-      date.getUTCDate(),
-      12,
-      0,
-      0,
-      0,
-    );
+    const normalizedDate =
+      typeof date === 'string'
+        ? date
+        : date.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
     const normalizedShift = shift?.trim() || null;
 
     return this.prisma.$executeRaw`
       UPDATE equipment_status
       SET alert_count = CASE
           WHEN COALESCE(alert_date, DATE '1900-01-01') <> ${normalizedDate}::date
-            OR NULLIF(shift, '') IS DISTINCT FROM ${normalizedShift}
+            OR NULLIF(BTRIM(shift), '') IS DISTINCT FROM ${normalizedShift}
           THEN GREATEST(${amount}, 0)
           ELSE GREATEST(COALESCE(alert_count, 0) + ${amount}, 0)
         END,

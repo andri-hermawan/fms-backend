@@ -247,7 +247,7 @@ export class EquipmentLogsService {
     // STEP 7.6: Resolve operator_name from daily_setting_operator.
     // `date` dikirim sebagai YYYY-MM-DD (timezone Asia/Jakarta) agar sesuai
     // dengan format parameter pada endpoint setting-operator.
-    const operatorDate = operationalCreatedAt.toLocaleDateString('en-CA', {
+    const operationalDate = operationalCreatedAt.toLocaleDateString('en-CA', {
       timeZone: 'Asia/Jakarta',
     });
     let operatorName: string | null = null;
@@ -255,7 +255,7 @@ export class EquipmentLogsService {
       operatorName =
         await this.settingOperatorRepository.findOperatorNameByEquipmentID({
           equipment_id: dto.equipment_id!,
-          date: operatorDate,
+          date: operationalDate,
           shift: shiftName ?? undefined,
         });
     } catch {
@@ -329,6 +329,7 @@ export class EquipmentLogsService {
       origFid,
       currentVesselStatus,
       currentTime,
+      operationalDate,
       equipment?.equipment_code ?? undefined,
       shiftName,
     );
@@ -376,6 +377,7 @@ export class EquipmentLogsService {
       mileage: dto.mileage,
       vessel_status: currentVesselStatus,
       shift: shiftName,
+      alert_period_date: operationalDate,
       status_engine: opStatus,
       operator_name: operatorName,
     };
@@ -539,6 +541,7 @@ export class EquipmentLogsService {
     origFid: number,
     currentVesselStatus: string,
     currentTime: Date,
+    operationalDate: string,
     equipmentCode?: string,
     shiftName?: string | null,
   ) {
@@ -573,6 +576,7 @@ export class EquipmentLogsService {
         status: savedLog.status,
         gsm_signal: dto.gsm_signal ?? 0,
         shift: shiftName,
+        alert_date: operationalDate,
         operator_name: savedLog.operator_name,
         last_update_at: savedLog.created_at,
       });
@@ -693,7 +697,7 @@ export class EquipmentLogsService {
           await this.equipmentStatusService.incrementAlertCount(
             equipmentId,
             1,
-            currentTime,
+            info.alert_period_date,
             info.shift,
           );
 
@@ -832,7 +836,7 @@ export class EquipmentLogsService {
         await this.equipmentStatusService.incrementAlertCount(
           equipmentId,
           1,
-          currentTime,
+          info.alert_period_date,
           info.shift,
         );
 
@@ -1159,7 +1163,7 @@ export class EquipmentLogsService {
           await this.equipmentStatusService.incrementAlertCount(
             equipmentId,
             1,
-            currentTime,
+            info.alert_period_date,
             info.shift,
           );
 
