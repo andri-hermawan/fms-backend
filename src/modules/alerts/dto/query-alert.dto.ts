@@ -41,17 +41,27 @@ export class QueryAlertDto {
 
   @ApiPropertyOptional({
     description: 'Tanggal mulai',
-    example: '2026-07-01',
+    example: '2026-10-01 atau 01-10-2026',
   })
   @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value !== 'string') return value;
+    const match = /^(\d{2})-(\d{2})-(\d{4})$/.exec(value);
+    return match ? `${match[3]}-${match[2]}-${match[1]}` : value;
+  })
   @IsDateString()
   created_at?: string;
 
   @ApiPropertyOptional({
     description: 'Tanggal akhir',
-    example: '2026-07-31',
+    example: '2026-10-01 atau 01-10-2026',
   })
   @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value !== 'string') return value;
+    const match = /^(\d{2})-(\d{2})-(\d{4})$/.exec(value);
+    return match ? `${match[3]}-${match[2]}-${match[1]}` : value;
+  })
   @IsDateString()
   created_at_end?: string;
 
