@@ -141,9 +141,15 @@ export class EquipmentStatusRepository {
         ST_Y(es.location::geometry) AS latitude,
         ST_X(es.location::geometry) AS longitude,
         e.equipment_code,
-        e.equipment_alias
+        e.equipment_alias,
+        es.shift,
+        b.description as breakdown_desc
       FROM equipment_status es
       LEFT JOIN equipments e ON e.id = es.equipment_id
+      LEFT JOIN breakdown_status b
+        ON b.equipment_code = e.equipment_code
+        AND b.shift = es.shift
+        AND es.updated_at::date = b.date_at
       WHERE es.equipment_id = ${equipment_id}::uuid
       LIMIT 1
     `;
@@ -321,38 +327,42 @@ export class EquipmentStatusRepository {
   async findAll() {
     return this.prisma.$queryRaw`
       SELECT
-        es.equipment_id,
-        es.log_id,
-        es.speed,
-        es.fuel_level,
-        es.fuel_temperature,
-        es.fuel_volume,
-        es.fuel_percentage,
-        es.fuel_difference,
-        es.alert_count,
-        es.engine_status,
-        es.status,
-        es.updated_at,
-        es.is_inside,
-        es.location_category,
-        es.segment,
-        es.vessel,
-        es.mileage,
-        es.vessel_status,
-        es.status,
-        es.engine_status,
-        es.breakdown,
-        es.gsm_signal,
-        es.operator_name,
-        ST_Y(es.location::geometry) AS latitude,
-        ST_X(es.location::geometry) AS longitude,
-
-        e.equipment_code,
-        e.equipment_alias
-
-      FROM equipment_status es
-      LEFT JOIN equipments e
-        ON e.id = es.equipment_id
+    es.equipment_id,
+    es.log_id,
+    es.speed,
+    es.fuel_level,
+    es.fuel_temperature,
+    es.fuel_volume,
+    es.fuel_percentage,
+    es.fuel_difference,
+    es.alert_count,
+    es.engine_status,
+    es.status,
+    es.updated_at,
+    es.is_inside,
+    es.location_category,
+    es.segment,
+    es.vessel,
+    es.mileage,
+    es.vessel_status,
+    es.status,
+    es.engine_status,
+    es.breakdown,
+    es.gsm_signal,
+    es.operator_name,
+    ST_Y(es.location::geometry) AS latitude,
+    ST_X(es.location::geometry) AS longitude,
+    e.equipment_code,
+    e.equipment_alias,
+    es.shift,
+    b.description as breakdown_desc
+FROM equipment_status es
+LEFT JOIN equipments e
+    ON e.id = es.equipment_id
+LEFT JOIN breakdown_status b
+    ON b.equipment_code = e.equipment_code
+    AND b.shift = es.shift
+    AND es.updated_at::date = b.date_at;
     `;
   }
 }

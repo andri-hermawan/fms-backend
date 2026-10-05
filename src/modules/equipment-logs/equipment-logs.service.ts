@@ -610,6 +610,7 @@ export class EquipmentLogsService {
         gsm_signal: dto.gsm_signal ?? 0,
         shift: shiftName,
         operator_name: savedLog.operator_name,
+        breakdown_desc: currentStatus?.breakdown_desc,
         alert_count: Number(currentStatus?.alert_count ?? 0),
         last_update_at: currentTime,
       });
@@ -1251,6 +1252,7 @@ export class EquipmentLogsService {
         gsm_signal: status.gsm_signal,
         shift: status.shift,
         operator_name: status.operator_name,
+        breakdown_desc: status.breakdown_desc,
         alert_count: Number(status.alert_count ?? 0),
         last_update_at: status.updated_at,
       });
