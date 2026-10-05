@@ -678,6 +678,7 @@ export class BreakdownStatusService {
       breakdown: breakdownValue,
       gsm_signal: equipmentStatus.gsm_signal,
       shift: equipmentStatus.shift,
+      breakdown_desc: equipmentStatus.breakdown_desc,
     });
   }
 }

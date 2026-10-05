@@ -55,6 +55,7 @@ export class EquipmentStatusService {
       gsm_signal: item.gsm_signal,
       shift: item.shift,
       operator_name: item.operator_name,
+      breakdown_desc: item.breakdown_desc,
     }));
   }
 
@@ -63,7 +64,15 @@ export class EquipmentStatusService {
   }
 
   async findByEquipmentId(equipment_id: string) {
-    return await this.repository.findByEquipmentId(equipment_id);
+    const item = await this.repository.findByEquipmentId(equipment_id);
+    if (!item) return null;
+
+    return {
+      ...item,
+      latitude: item.latitude != null ? Number(item.latitude) : null,
+      longitude: item.longitude != null ? Number(item.longitude) : null,
+      breakdown_desc: item.breakdown_desc,
+    };
   }
 
   async incrementAlertCount(

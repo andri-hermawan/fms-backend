@@ -529,6 +529,7 @@ export class SettingOperatorService {
       gsm_signal: equipmentStatus.gsm_signal,
       shift: equipmentStatus.shift,
       operator_name: row.operator_name,
+      breakdown_desc: equipmentStatus.breakdown_desc,
     });
   }
 }
