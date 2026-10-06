@@ -415,12 +415,21 @@ export class BreakdownStatusService {
       data.equipment_code = dto.equipment_code;
     if (dto.status !== undefined) data.status = dto.status;
     if (dto.category !== undefined) data.category = dto.category;
-    if (dto.time_start !== undefined)
-      data.time_start = this.toTime(dto.time_start);
-    if (dto.time_end !== undefined) data.time_end = this.toTime(dto.time_end);
+    if (dto.time_start !== undefined) {
+      data.time_start =
+        dto.time_start == null || dto.time_start.trim() === ''
+          ? null
+          : this.toTime(dto.time_start);
+    }
+    if (dto.time_end !== undefined) {
+      data.time_end =
+        dto.time_end == null || dto.time_end.trim() === ''
+          ? null
+          : this.toTime(dto.time_end);
+    }
     if (dto.duration !== undefined) {
-      const durationNum = this.toDuration(dto.duration);
-      data.duration = durationNum !== undefined ? String(durationNum) : undefined;
+      const durationNum = this.toDuration(dto.duration ?? undefined);
+      data.duration = durationNum !== undefined ? String(durationNum) : null;
     }
     if (dto.repair_status !== undefined) data.repair_status = dto.repair_status;
     if (dto.description !== undefined) data.description = dto.description;

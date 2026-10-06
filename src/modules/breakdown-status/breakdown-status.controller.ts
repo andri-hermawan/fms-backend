@@ -76,6 +76,27 @@ export class BreakdownStatusController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Mengupdate breakdown status' })
+  @ApiBody({
+    type: UpdateBreakdownStatusDto,
+    examples: {
+      updateBreakdownStatus: {
+        summary: 'Contoh update breakdown status',
+        value: {
+          date_at: '2026-08-11',
+          shift: 'SHIFT 1',
+          equipment_code: 'TR-001',
+          status: 'DOWN',
+          category: 'MESIN',
+          time_start: '08:00',
+          time_end: '10:30',
+          duration: 2.5,
+          repair_status: 'PENDING',
+          description: 'Kerusakan mesin',
+          location: 'Site A',
+        },
+      },
+    },
+  })
   update(@Param('id') id: string, @Body() dto: UpdateBreakdownStatusDto) {
     return this.breakdownStatusService.update(id, dto);
   }
