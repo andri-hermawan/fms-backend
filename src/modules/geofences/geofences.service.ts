@@ -21,6 +21,10 @@ export class GeofencesService {
     return await this.repository.create(dto);
   }
 
+  async findLatestByEquipment(equipment_id: string) {
+    return await this.repository.findLatestByEquipment(equipment_id);
+  }
+
   async findAll(query: QueryGeofenceDto) {
     const { page = 1, limit = 10, equipment_id, status } = query;
     const skip = (Number(page) - 1) * Number(limit);

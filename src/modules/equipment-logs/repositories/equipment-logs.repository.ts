@@ -50,6 +50,7 @@ export class EquipmentLogsRepository {
         status,
         shift,
         breakdown,
+        breakdown_desc,
         operator_name,
         created_at
       ) VALUES (
@@ -92,6 +93,7 @@ export class EquipmentLogsRepository {
         ${rest.status},
         ${rest.shift || null},
         ${rest.breakdown ?? null},
+        ${rest.breakdown_desc ?? null},
         ${rest.operator_name || null},
         COALESCE(${rest.created_at}::timestamptz, NOW())
       )
@@ -138,6 +140,7 @@ export class EquipmentLogsRepository {
       status,
       shift,
       breakdown,
+      breakdown_desc,
       operator_name,
       created_at;
     `;
@@ -231,18 +234,19 @@ export class EquipmentLogsRepository {
     return result[0] ?? null;
   }
 
-  async findOverSpeedStart(equipment_id: string) {
+  // Awal streak speed > speedLimit (default 50, dapat diatur lewat alert_rules).
+  async findOverSpeedStart(equipment_id: string, speedLimit: number) {
     const result = await this.prisma.$queryRaw<{ created_at: Date }[]>`
       SELECT created_at
       FROM equipment_logs
       WHERE equipment_id = ${equipment_id}::uuid
-        AND COALESCE(speed, 0) > 50
+        AND COALESCE(speed, 0) > ${speedLimit}::numeric
         AND id > COALESCE(
           (
             SELECT MAX(id)
             FROM equipment_logs
             WHERE equipment_id = ${equipment_id}::uuid
-              AND COALESCE(speed, 0) <= 50
+              AND COALESCE(speed, 0) <= ${speedLimit}::numeric
           ),
           0
         )
@@ -253,13 +257,14 @@ export class EquipmentLogsRepository {
     return result[0] ?? null;
   }
 
-  async findUnderSpeedStart(equipment_id: string) {
+  // Awal streak 0 < speed < speedLimit (default 10, dapat diatur lewat alert_rules).
+  async findUnderSpeedStart(equipment_id: string, speedLimit: number) {
     const result = await this.prisma.$queryRaw<{ created_at: Date }[]>`
       SELECT created_at
       FROM equipment_logs
       WHERE equipment_id = ${equipment_id}::uuid
         AND COALESCE(speed, 0) > 0
-        AND COALESCE(speed, 0) < 10
+        AND COALESCE(speed, 0) < ${speedLimit}::numeric
         AND id > COALESCE(
           (
             SELECT MAX(id)
@@ -267,7 +272,7 @@ export class EquipmentLogsRepository {
             WHERE equipment_id = ${equipment_id}::uuid
               AND (
                 COALESCE(speed, 0) <= 0
-                OR COALESCE(speed, 0) >= 10
+                OR COALESCE(speed, 0) >= ${speedLimit}::numeric
               )
           ),
           0
@@ -554,6 +559,8 @@ export class EquipmentLogsRepository {
         el.vessel_status,
         el.status,
         el.shift,
+        el.breakdown,
+        el.breakdown_desc,
         el.created_at,
         eq.equipment_code,
         dv.device_code,
@@ -634,6 +641,8 @@ export class EquipmentLogsRepository {
         el.vessel_status,
         el.status,
         el.shift,
+        el.breakdown,
+        el.breakdown_desc,
         el.created_at,
         eq.equipment_code
       FROM equipment_logs el

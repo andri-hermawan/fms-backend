@@ -78,9 +78,14 @@ export class EquipmentStatusService {
   async incrementAlertCount(
     equipmentId: string,
     amount: number,
-    date: Date,
+    date: Date | string,
     shift?: string | null,
   ) {
-    return this.repository.incrementAlertCount(equipmentId, amount, date, shift);
+    return this.repository.incrementAlertCount(
+      equipmentId,
+      amount,
+      date,
+      shift,
+    );
   }
 }
