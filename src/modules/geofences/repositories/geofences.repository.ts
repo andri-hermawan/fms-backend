@@ -58,6 +58,15 @@ export class GeofencesRepository {
     `;
   }
 
+  // Event terakhir dengan filter yang sama seperti findAll, tanpa count/include.
+  async findLatestByEquipment(equipment_id: string) {
+    return await this.prisma.geofences.findFirst({
+      where: { equipment_id, orig_fid: 0 },
+      orderBy: { created_at: 'desc' },
+      select: { event: true, segment: true },
+    });
+  }
+
   async findAll(params: {
     skip?: number;
     take?: number;

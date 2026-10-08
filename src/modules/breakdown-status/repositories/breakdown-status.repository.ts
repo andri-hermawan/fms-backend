@@ -27,7 +27,10 @@ export class BreakdownStatusRepository {
   }> {
     console.log('[BREAKDOWN-REPOSITORY-UPSERT-DATE-INPUT]', {
       date_at: row.date_at,
-      date_at_iso: row.date_at instanceof Date ? row.date_at.toISOString() : String(row.date_at),
+      date_at_iso:
+        row.date_at instanceof Date
+          ? row.date_at.toISOString()
+          : String(row.date_at),
     });
 
     return await this.prisma.$transaction(async (tx) => {
@@ -127,6 +130,24 @@ export class BreakdownStatusRepository {
     data: Prisma.breakdown_statusUncheckedUpdateInput,
   ): Promise<breakdown_status> {
     return await this.prisma.breakdown_status.update({ where: { id }, data });
+  }
+
+  // Status & deskripsi terbaru (id terbesar) per date_at + equipment_code + shift.
+  async findLatestStatus(params: {
+    date_at: string; // YYYY-MM-DD
+    equipment_code: string;
+    shift: string;
+  }): Promise<{ status: string | null; description: string | null } | null> {
+    const row = await this.prisma.breakdown_status.findFirst({
+      where: {
+        date_at: new Date(`${params.date_at}T00:00:00.000Z`),
+        equipment_code: params.equipment_code,
+        shift: params.shift,
+      },
+      orderBy: { id: 'desc' },
+      select: { status: true, description: true },
+    });
+    return row ?? null;
   }
 
   async delete(id: bigint): Promise<breakdown_status> {

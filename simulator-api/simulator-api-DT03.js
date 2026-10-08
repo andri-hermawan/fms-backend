@@ -14,7 +14,7 @@ const axios = require("axios");
 const BASE_URL =
   "http://localhost:3346/fms/api/equipment-logs";
 
-const BEARER_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFuZHJpLmhlcm1hd2FuQGZtcy5jb20iLCJzdWIiOiIwYjEwNzA1ZS01NDVjLTQ1N2QtODg2Mi01MzM1NjYwMmQ1N2MiLCJyb2xlIjoic3VwZXJhZG1pbiIsImlhdCI6MTc5MDc0NDQ1NywiZXhwIjoxNzkwODMwODU3fQ.wUpcAjTD5KSs859H1kwwdLDDdOdL3iVr_9m8umgYXw8";
+const BEARER_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFuZHJpLmhlcm1hd2FuQGZtcy5jb20iLCJzdWIiOiIwYjEwNzA1ZS01NDVjLTQ1N2QtODg2Mi01MzM1NjYwMmQ1N2MiLCJyb2xlIjoic3VwZXJhZG1pbiIsImlhdCI6MTc5MTQzMDI4MSwiZXhwIjoxNzkxNTE2NjgxfQ.3etwG_LB2bTw3uN_sJDTvQKQMhKSHBXHKI8O58SHYsI";
 // const BEARER_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFuZHJpLmhlcm1hd2FuQGZtcy5jb20iLCJzdWIiOiIwYjEwNzA1ZS01NDVjLTQ1N2QtODg2Mi01MzM1NjYwMmQ1N2MiLCJyb2xlIjoic3VwZXJhZG1pbiIsImlhdCI6MTc4NzkwMDQ5MiwiZXhwIjoxNzg3OTg2ODkyfQ.T0nDza1YfBX_opv7fZoOkt1zFX35BPwysRBf-QNpMy8";
 
 const EQUIPMENT_ID = "f070646a-2ff8-416a-bb9f-f5f940ddb4c3";
@@ -3539,7 +3539,7 @@ scenario.forEach((item, index) => {
   Object.assign(item, { engine_status, fuel_level, speed });
 });
 
-const scenarioStart = new Date("2026-09-30T07:05:00");
+const scenarioStart = new Date("2026-10-08T07:05:00");
 
 function formatTimestamp(date) {
   const pad = (value) => String(value).padStart(2, "0");

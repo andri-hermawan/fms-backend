@@ -9,6 +9,6 @@ import { EquipmentStatusModule } from '../equipment-status/equipment-status.modu
   imports: [EquipmentsModule, EquipmentStatusModule],
   controllers: [BreakdownStatusController],
   providers: [BreakdownStatusService, BreakdownStatusRepository],
-  exports: [BreakdownStatusService],
+  exports: [BreakdownStatusService, BreakdownStatusRepository],
 })
 export class BreakdownStatusModule {}
