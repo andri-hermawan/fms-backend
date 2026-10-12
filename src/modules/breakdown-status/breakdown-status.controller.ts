@@ -16,6 +16,7 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiConsumes,
+  ApiOkResponse,
   ApiOperation,
   ApiResponse,
   ApiTags,
@@ -26,6 +27,7 @@ import { CreateBreakdownStatusDto } from './dto/create-breakdown-status.dto';
 import type { Express } from 'express';
 import { UpdateBreakdownStatusDto } from './dto/update-breakdown-status.dto';
 import { QueryBreakdownStatusDto } from './dto/query-breakdown-status.dto';
+import { QueryBreakdownStatusDailyDto } from './dto/query-breakdown-status-daily.dto';
 
 @ApiTags('Breakdown Status')
 @ApiBearerAuth()
@@ -66,6 +68,64 @@ export class BreakdownStatusController {
   @ApiOperation({ summary: 'Mengambil daftar breakdown status' })
   findAll(@Query() query: QueryBreakdownStatusDto) {
     return this.breakdownStatusService.findAll(query);
+  }
+
+  @Get('daily')
+  @ApiOperation({
+    summary:
+      'Report breakdown duration harian per asset (group by date_at & equipment_code)',
+    description:
+      'Menghasilkan matrix Asset ID x tanggal. Nilai tiap sel adalah total durasi breakdown ' +
+      '(SUM kolom duration, dalam jam) untuk equipment_code tersebut pada tanggal tersebut, ' +
+      'setara dengan SUMIFS(Input_BD!$I:$I; Input_BD!$M:$M; asset; Input_BD!$A:$A; tanggal) ' +
+      'pada Excel. Kondisi OR(DT_RMKO!O4="";DT_RMKO!O4="Non Active") pada rumus aslinya ' +
+      'tidak dipakai. Tanggal tanpa data breakdown bernilai 0. Filter yang tersedia hanya ' +
+      'shift dan equipment_code, keduanya mendukung lebih dari satu nilai.',
+  })
+  @ApiOkResponse({
+    description: 'Report breakdown duration harian berhasil diambil.',
+    schema: {
+      example: {
+        statusCode: 200,
+        message: 'Success',
+        data: {
+          period: {
+            start_date: '2026-09-01',
+            end_date: '2026-09-07',
+            total_days: 7,
+          },
+          days: [
+            '2026-09-01',
+            '2026-09-02',
+            '2026-09-03',
+            '2026-09-04',
+            '2026-09-05',
+            '2026-09-06',
+            '2026-09-07',
+          ],
+          filters: { shift: ['Shift 1'], equipment_code: ['DT10193'] },
+          data: [
+            {
+              asset_id: 'DT10193',
+              equipment_code: 'DT10193',
+              values: {
+                '2026-09-01': 0.73,
+                '2026-09-02': 14.5,
+                '2026-09-03': 8.68,
+                '2026-09-04': 3.08,
+                '2026-09-05': 18.83,
+                '2026-09-06': 8,
+                '2026-09-07': 0,
+              },
+            },
+          ],
+          total_row: 1,
+        },
+      },
+    },
+  })
+  getDaily(@Query() query: QueryBreakdownStatusDailyDto) {
+    return this.breakdownStatusService.getBreakdownDaily(query);
   }
 
   @Get(':id')

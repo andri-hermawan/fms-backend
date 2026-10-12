@@ -7,6 +7,9 @@ import { WeighbridgeRepository } from './repositories/weighbridge.repository';
 import { CreateWeighbridgeDto } from './dto/create-weighbridge.dto';
 import { UpdateWeighbridgeDto } from './dto/update-weighbridge.dto';
 import { QueryWeighbridgeDto } from './dto/query-weighbridge.dto';
+import { QueryWeighbridgeRitaseDailyDto } from './dto/query-weighbridge-ritase-daily.dto';
+import { QueryWeighbridgePayloadDailyDto } from './dto/query-weighbridge-payload-daily.dto';
+import { QueryWeighbridgeProductionDailyDto } from './dto/query-weighbridge-production-daily.dto';
 import * as XLSX from 'xlsx';
 import type { Express } from 'express';
 import { Prisma } from '@prisma/client';
@@ -264,6 +267,291 @@ export class WeighbridgeService {
       throw new NotFoundException(`Weighbridge with ID '${id}' not found`);
     }
     return this.serialize(record);
+  }
+
+  /**
+   * Report production harian (matrix Asset ID x tanggal).
+   * Nilai tiap sel = SUM net (payload) per equipment_code per tanggal dibagi
+   * 1000 (konversi kg -> ton), setara dengan rumus Excel
+   * IFERROR(SUMIFS(Input_WB!$J:$J; Input_WB!$P:$P; asset; Input_WB!$B:$B; tanggal)/1000; 0).
+   */
+  async getProductionDaily(query: QueryWeighbridgeProductionDailyDto) {
+    const { startDate, endDate, totalDays, where, shift, equipmentCode } =
+      this.resolvePeriod(query);
+
+    const rows = await this.repository.sumNetByDateAndEquipment({
+      startDate,
+      endDate,
+      where,
+    });
+
+    const days = this.buildDateRange(startDate, totalDays);
+    const units = new Map<string, { values: Map<string, number> }>();
+
+    for (const row of rows) {
+      const unit = units.get(row.equipment_code) ?? {
+        values: new Map<string, number>(),
+      };
+      unit.values.set(row.date, this.toTon(row.sum_net));
+      units.set(row.equipment_code, unit);
+    }
+
+    return this.buildMatrixResponse({
+      startDate,
+      endDate,
+      totalDays,
+      days,
+      shift,
+      equipmentCode,
+      units,
+      emptyValue: 0,
+    });
+  }
+
+  /**
+   * Report payload harian (matrix Asset ID x tanggal).
+   * Nilai tiap sel = AVERAGE net (payload) per equipment_code per tanggal
+   * dibagi 1000 (konversi kg -> ton), setara dengan rumus Excel
+   * IFERROR(AVERAGEIFS(Input_WB!$J:$J; Input_WB!$P:$P; asset; Input_WB!$B:$B; tanggal)/1000; 0).
+   */
+  async getPayloadDaily(query: QueryWeighbridgePayloadDailyDto) {
+    const { startDate, endDate, totalDays, where, shift, equipmentCode } =
+      this.resolvePeriod(query);
+
+    const rows = await this.repository.avgNetByDateAndEquipment({
+      startDate,
+      endDate,
+      where,
+    });
+
+    const days = this.buildDateRange(startDate, totalDays);
+    const units = new Map<string, { values: Map<string, number> }>();
+
+    for (const row of rows) {
+      const unit = units.get(row.equipment_code) ?? {
+        values: new Map<string, number>(),
+      };
+      unit.values.set(row.date, this.toTon(row.avg_net));
+      units.set(row.equipment_code, unit);
+    }
+
+    return this.buildMatrixResponse({
+      startDate,
+      endDate,
+      totalDays,
+      days,
+      shift,
+      equipmentCode,
+      units,
+      emptyValue: 0,
+    });
+  }
+
+  /**
+   * Report ritase harian (matrix Asset ID x tanggal).
+   * Nilai tiap sel = COUNT ritase (jumlah baris) weighbridge untuk
+   * equipment_code tersebut pada tanggal tersebut, setara dengan
+   * COUNTIFS(Input_WB!D:D; asset; Input_WB!B:B; tanggal) pada Excel.
+   */
+  async getRitaseDaily(query: QueryWeighbridgeRitaseDailyDto) {
+    const { startDate, endDate, totalDays, where, shift, equipmentCode } =
+      this.resolvePeriod(query);
+
+    const rows = await this.repository.countRitaseByDateAndEquipment({
+      startDate,
+      endDate,
+      where,
+    });
+
+    const days = this.buildDateRange(startDate, totalDays);
+    const units = new Map<
+      string,
+      { ritase: number; total_net: number; values: Map<string, number> }
+    >();
+
+    for (const row of rows) {
+      const unit = units.get(row.equipment_code) ?? {
+        ritase: 0,
+        total_net: 0,
+        values: new Map<string, number>(),
+      };
+      unit.ritase += row.ritase;
+      unit.total_net += row.net;
+      unit.values.set(row.date, (unit.values.get(row.date) ?? 0) + row.ritase);
+      units.set(row.equipment_code, unit);
+    }
+
+    const data = Array.from(units.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([code, unit]) => ({
+        asset_id: code,
+        equipment_code: code,
+        ritase: unit.ritase,
+        total_net: Number(unit.total_net.toFixed(2)),
+        values: Object.fromEntries(
+          days.map((day) => [day, unit.values.get(day) ?? 0]),
+        ),
+      }));
+
+    return {
+      period: {
+        start_date: startDate,
+        end_date: endDate,
+        total_days: totalDays,
+      },
+      days,
+      filters: {
+        shift: shift ?? null,
+        equipment_code: equipmentCode ?? null,
+      },
+      data,
+      total_row: data.length,
+    };
+  }
+
+  /**
+   * Validasi periode + bangun filter where. Dipakai bersama oleh report
+   * ritase-daily dan payload-daily supaya aturannya konsisten.
+   */
+  private resolvePeriod(query: {
+    start_date: string;
+    end_date: string;
+    max_days?: number;
+    shift?: string[];
+    equipment_code?: string[];
+  }) {
+    const startDate = this.normalizeQueryDate(query.start_date);
+    const endDate = this.normalizeQueryDate(query.end_date);
+
+    if (!startDate || !endDate) {
+      throw new BadRequestException(
+        'Format tanggal tidak valid, gunakan format YYYY-MM-DD',
+      );
+    }
+    if (startDate > endDate) {
+      throw new BadRequestException('start_date tidak boleh melebihi end_date');
+    }
+
+    const maxDays = query.max_days ?? 31;
+    const totalDays = this.diffInDays(startDate, endDate) + 1;
+    if (totalDays > maxDays) {
+      throw new BadRequestException(
+        `Rentang tanggal terlalu panjang (${totalDays} hari). Maksimal ${maxDays} hari per request.`,
+      );
+    }
+
+    const where: Prisma.weighbridgeWhereInput = {};
+    const shift = this.toList(query.shift);
+    const equipmentCode = this.toList(query.equipment_code);
+
+    if (shift) where.shift = { in: shift };
+    if (equipmentCode) where.equipment_code = { in: equipmentCode };
+
+    return { startDate, endDate, totalDays, where, shift, equipmentCode };
+  }
+
+  /**
+   * Susun matrix Asset ID x tanggal. Asset yang difilter secara eksplisit
+   * tetap ditampilkan walau belum ada transaksi, sehingga barisnya persis
+   * mengikuti pilihan user.
+   */
+  private buildMatrixResponse(params: {
+    startDate: string;
+    endDate: string;
+    totalDays: number;
+    days: string[];
+    shift?: string[];
+    equipmentCode?: string[];
+    units: Map<string, { values: Map<string, number> }>;
+    emptyValue: number;
+  }) {
+    const { units, days, equipmentCode } = params;
+
+    for (const code of equipmentCode ?? []) {
+      if (!units.has(code)) units.set(code, { values: new Map() });
+    }
+
+    const data = Array.from(units.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([code, unit]) => ({
+        asset_id: code,
+        equipment_code: code,
+        values: Object.fromEntries(
+          days.map((day) => [day, unit.values.get(day) ?? params.emptyValue]),
+        ),
+      }));
+
+    return {
+      period: {
+        start_date: params.startDate,
+        end_date: params.endDate,
+        total_days: params.totalDays,
+      },
+      days,
+      filters: {
+        shift: params.shift ?? null,
+        equipment_code: params.equipmentCode ?? null,
+      },
+      data,
+      total_row: data.length,
+    };
+  }
+
+  /** Konversi net (kg) ke ton, dibulatkan 3 desimal. */
+  private toTon(value: number): number {
+    return Number((value / 1000).toFixed(3));
+  }
+
+  private normalizeQueryDate(value?: string): string | null {
+    const text = (value ?? '').trim();
+    const match = text.match(/^([0-9]{4})[/.-]([0-9]{1,2})[/.-]([0-9]{1,2})/);
+    if (!match) return null;
+
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+    const date = new Date(Date.UTC(year, month - 1, day));
+    if (
+      date.getUTCFullYear() !== year ||
+      date.getUTCMonth() !== month - 1 ||
+      date.getUTCDate() !== day
+    ) {
+      return null;
+    }
+
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+
+  private diffInDays(startDate: string, endDate: string): number {
+    const start = Date.parse(`${startDate}T00:00:00.000Z`);
+    const end = Date.parse(`${endDate}T00:00:00.000Z`);
+    return Math.round((end - start) / 86_400_000);
+  }
+
+  private buildDateRange(startDate: string, totalDays: number): string[] {
+    const start = new Date(`${startDate}T00:00:00.000Z`);
+    return Array.from({ length: totalDays }, (_, index) => {
+      const date = new Date(
+        Date.UTC(
+          start.getUTCFullYear(),
+          start.getUTCMonth(),
+          start.getUTCDate() + index,
+        ),
+      );
+      return `${date.getUTCFullYear()}-${String(
+        date.getUTCMonth() + 1,
+      ).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+    });
+  }
+
+  private toList(value?: string[] | string): string[] | undefined {
+    if (value === undefined || value === null) return undefined;
+    const items = (Array.isArray(value) ? value : [value])
+      .map((item) => String(item).trim())
+      .filter((item) => item.length > 0);
+    return items.length > 0 ? Array.from(new Set(items)) : undefined;
   }
 
   async update(id: string, dto: UpdateWeighbridgeDto) {
