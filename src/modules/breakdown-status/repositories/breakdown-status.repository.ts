@@ -125,6 +125,50 @@ export class BreakdownStatusRepository {
     return await this.prisma.breakdown_status.findUnique({ where: { id } });
   }
 
+  /**
+   * Total durasi breakdown (SUM kolom duration) per equipment_code per
+   * tanggal — setara SUMIFS(Input_BD!$I:$I; Input_BD!$M:$M; asset;
+   * Input_BD!$A:$A; tanggal) pada Excel. Dipakai oleh report breakdown-daily.
+   * date_at bertipe `date`, jadi getUTC* menghasilkan YYYY-MM-DD tanpa
+   * terpengaruh timezone server.
+   */
+  async sumDurationByDateAndEquipment(params: {
+    startDate: string;
+    endDate: string;
+    where?: Prisma.breakdown_statusWhereInput;
+  }): Promise<
+    { equipment_code: string; date: string; sum_duration: number }[]
+  > {
+    const rows = await this.prisma.breakdown_status.groupBy({
+      by: ['date_at', 'equipment_code'],
+      where: {
+        ...(params.where ?? {}),
+        date_at: {
+          gte: new Date(`${params.startDate}T00:00:00.000Z`),
+          lte: new Date(`${params.endDate}T00:00:00.000Z`),
+        },
+      },
+      _sum: { duration: true },
+      orderBy: [{ date_at: 'asc' }, { equipment_code: 'asc' }],
+    });
+
+    return rows
+      .filter((row) => row.date_at && row.equipment_code)
+      .map((row) => ({
+        equipment_code: row.equipment_code as string,
+        date: this.formatDateKey(row.date_at!),
+        sum_duration: Number(row._sum.duration ?? 0),
+      }));
+  }
+
+  /** Format tanggal kolom `date` menjadi YYYY-MM-DD. */
+  private formatDateKey(date: Date): string {
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(
+      2,
+      '0',
+    )}-${String(date.getUTCDate()).padStart(2, '0')}`;
+  }
+
   async update(
     id: bigint,
     data: Prisma.breakdown_statusUncheckedUpdateInput,

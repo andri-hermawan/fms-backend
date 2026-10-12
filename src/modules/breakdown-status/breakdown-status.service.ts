@@ -8,6 +8,7 @@ import { BreakdownStatusRepository } from './repositories/breakdown-status.repos
 import { CreateBreakdownStatusDto } from './dto/create-breakdown-status.dto';
 import { UpdateBreakdownStatusDto } from './dto/update-breakdown-status.dto';
 import { QueryBreakdownStatusDto } from './dto/query-breakdown-status.dto';
+import { QueryBreakdownStatusDailyDto } from './dto/query-breakdown-status-daily.dto';
 import { EquipmentsRepository } from '../equipments/repositories/equipments.repository';
 import { EquipmentStatusRepository } from '../equipment-status/repositories/equipment-status.repository';
 import { WebSocketGatewayService } from '../../common/websocket/websocket.gateway';
@@ -403,6 +404,47 @@ export class BreakdownStatusService {
     return this.serialize(record);
   }
 
+  /**
+   * Report breakdown duration harian (matrix Asset ID x tanggal).
+   * Nilai tiap sel = SUM kolom duration (jam) per equipment_code per tanggal,
+   * setara dengan rumus Excel
+   * IF(OR(DT_RMKO!O4="";DT_RMKO!O4="Non Active");"";
+   * SUMIFS(Input_BD!$I:$I;Input_BD!$M:$M;$D7;Input_BD!$A:$A;L$5)).
+   * Sesuai permintaan, kondisi OR(DT_RMKO!O4="";DT_RMKO!O4="Non Active")
+   * tidak dipakai. Tanggal tanpa data breakdown bernilai 0.
+   */
+  async getBreakdownDaily(query: QueryBreakdownStatusDailyDto) {
+    const { startDate, endDate, totalDays, where, shift, equipmentCode } =
+      this.resolvePeriod(query);
+
+    const rows = await this.repository.sumDurationByDateAndEquipment({
+      startDate,
+      endDate,
+      where,
+    });
+
+    const days = this.buildDateRange(startDate, totalDays);
+    const units = new Map<string, { values: Map<string, number> }>();
+
+    for (const row of rows) {
+      const unit = units.get(row.equipment_code) ?? {
+        values: new Map<string, number>(),
+      };
+      unit.values.set(row.date, row.sum_duration);
+      units.set(row.equipment_code, unit);
+    }
+
+    return this.buildMatrixResponse({
+      startDate,
+      endDate,
+      totalDays,
+      days,
+      shift,
+      equipmentCode,
+      units,
+    });
+  }
+
   async update(id: string, dto: UpdateBreakdownStatusDto) {
     const existing = await this.repository.findById(BigInt(id));
     if (!existing) {
@@ -457,6 +499,148 @@ export class BreakdownStatusService {
       throw new NotFoundException(`Breakdown status with ID '${id}' not found`);
     }
     return await this.repository.delete(BigInt(id));
+  }
+
+  /**
+   * Validasi periode + bangun filter where untuk report harian.
+   * Hanya shift dan equipment_code yang menjadi filter data; keduanya
+   * mendukung lebih dari satu nilai.
+   */
+  private resolvePeriod(query: {
+    start_date: string;
+    end_date: string;
+    max_days?: number;
+    shift?: string[];
+    equipment_code?: string[];
+  }) {
+    const startDate = this.normalizeQueryDate(query.start_date);
+    const endDate = this.normalizeQueryDate(query.end_date);
+
+    if (!startDate || !endDate) {
+      throw new BadRequestException(
+        'Format tanggal tidak valid, gunakan format YYYY-MM-DD',
+      );
+    }
+    if (startDate > endDate) {
+      throw new BadRequestException('start_date tidak boleh melebihi end_date');
+    }
+
+    const maxDays = query.max_days ?? 31;
+    const totalDays = this.diffInDays(startDate, endDate) + 1;
+    if (totalDays > maxDays) {
+      throw new BadRequestException(
+        `Rentang tanggal terlalu panjang (${totalDays} hari). Maksimal ${maxDays} hari per request.`,
+      );
+    }
+
+    const where: Prisma.breakdown_statusWhereInput = {};
+    const shift = this.toList(query.shift);
+    const equipmentCode = this.toList(query.equipment_code);
+
+    if (shift) where.shift = { in: shift };
+    if (equipmentCode) where.equipment_code = { in: equipmentCode };
+
+    return { startDate, endDate, totalDays, where, shift, equipmentCode };
+  }
+
+  /**
+   * Susun matrix Asset ID x tanggal. Asset yang difilter secara eksplisit
+   * tetap ditampilkan walau belum ada data, sehingga barisnya persis
+   * mengikuti pilihan user. Tanggal tanpa data bernilai 0.
+   */
+  private buildMatrixResponse(params: {
+    startDate: string;
+    endDate: string;
+    totalDays: number;
+    days: string[];
+    shift?: string[];
+    equipmentCode?: string[];
+    units: Map<string, { values: Map<string, number> }>;
+  }) {
+    const { units, days, equipmentCode } = params;
+
+    for (const code of equipmentCode ?? []) {
+      if (!units.has(code)) units.set(code, { values: new Map() });
+    }
+
+    const data = Array.from(units.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([code, unit]) => ({
+        asset_id: code,
+        equipment_code: code,
+        values: Object.fromEntries(
+          days.map((day) => [day, unit.values.get(day) ?? 0]),
+        ),
+      }));
+
+    return {
+      period: {
+        start_date: params.startDate,
+        end_date: params.endDate,
+        total_days: params.totalDays,
+      },
+      days,
+      filters: {
+        shift: params.shift ?? null,
+        equipment_code: params.equipmentCode ?? null,
+      },
+      data,
+      total_row: data.length,
+    };
+  }
+
+  private normalizeQueryDate(value?: string): string | null {
+    const text = (value ?? '').trim();
+    const match = text.match(/^([0-9]{4})[/.-]([0-9]{1,2})[/.-]([0-9]{1,2})/);
+    if (!match) return null;
+
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+    const date = new Date(Date.UTC(year, month - 1, day));
+    if (
+      date.getUTCFullYear() !== year ||
+      date.getUTCMonth() !== month - 1 ||
+      date.getUTCDate() !== day
+    ) {
+      return null;
+    }
+
+    return this.toIsoDateString(year, month, day);
+  }
+
+  private diffInDays(startDate: string, endDate: string): number {
+    const start = Date.parse(`${startDate}T00:00:00.000Z`);
+    const end = Date.parse(`${endDate}T00:00:00.000Z`);
+    return Math.round((end - start) / 86_400_000);
+  }
+
+  private buildDateRange(startDate: string, totalDays: number): string[] {
+    const start = new Date(`${startDate}T00:00:00.000Z`);
+    return Array.from({ length: totalDays }, (_, index) => {
+      const date = new Date(
+        Date.UTC(
+          start.getUTCFullYear(),
+          start.getUTCMonth(),
+          start.getUTCDate() + index,
+        ),
+      );
+      return this.toIsoDateString(
+        date.getUTCFullYear(),
+        date.getUTCMonth() + 1,
+        date.getUTCDate(),
+      );
+    });
+  }
+
+  private toList(value?: string[] | string): string[] | undefined {
+    if (value === undefined || value === null) return undefined;
+    const items = (Array.isArray(value) ? value : [value])
+      .map((item) => String(item).trim())
+      .filter((item) => item.length > 0);
+    return items.length > 0 ? Array.from(new Set(items)) : undefined;
   }
 
   private toIsoDateString(year: number, month: number, day: number): string {
