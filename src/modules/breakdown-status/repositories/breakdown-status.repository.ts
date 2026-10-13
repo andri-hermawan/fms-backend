@@ -20,6 +20,7 @@ export class BreakdownStatusRepository {
 
   async upsertImportRow(
     row: Prisma.breakdown_statusUncheckedCreateInput,
+    name: string | null,
   ): Promise<{
     record: breakdown_status;
     created: number;
@@ -47,7 +48,7 @@ export class BreakdownStatusRepository {
       if (existing) {
         const record = await tx.breakdown_status.update({
           where: { id: existing.id },
-          data: { ...row, updated_at: new Date() },
+          data: { ...row, updated_at: new Date(), updated_by: name },
         });
         console.log('[BREAKDOWN-REPOSITORY-UPSERT-DATE-UPDATED]', {
           id: record.id.toString(),
@@ -60,7 +61,9 @@ export class BreakdownStatusRepository {
         return { record, created: 0, updated: 1 };
       }
 
-      const record = await tx.breakdown_status.create({ data: row });
+      const record = await tx.breakdown_status.create({
+        data: { ...row, created_by: name },
+      });
       console.log('[BREAKDOWN-REPOSITORY-UPSERT-DATE-CREATED]', {
         id: record.id.toString(),
         date_at: record.date_at,
@@ -75,6 +78,7 @@ export class BreakdownStatusRepository {
 
   async upsertImportRows(
     rows: Prisma.breakdown_statusUncheckedCreateInput[],
+    name: string | null,
   ): Promise<{ created: number; updated: number }> {
     return await this.prisma.$transaction(async (tx) => {
       let created = 0;
@@ -95,11 +99,13 @@ export class BreakdownStatusRepository {
         if (existing) {
           await tx.breakdown_status.update({
             where: { id: existing.id },
-            data: { ...row, updated_at: new Date() },
+            data: { ...row, updated_at: new Date(), updated_by: name },
           });
           updated++;
         } else {
-          await tx.breakdown_status.create({ data: row });
+          await tx.breakdown_status.create({
+            data: { ...row, created_by: name },
+          });
           created++;
         }
       }

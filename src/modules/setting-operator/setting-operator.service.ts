@@ -26,7 +26,7 @@ export class SettingOperatorService {
     private readonly wsGateway: WebSocketGatewayService,
   ) {}
 
-  async create(dto: CreateSettingOperatorDto) {
+  async create(dto: CreateSettingOperatorDto, name: string | null) {
     const dateAt = this.parseDate(dto.date_at);
     if (Number.isNaN(dateAt.getTime())) {
       throw new BadRequestException('Tanggal tidak valid');
@@ -39,7 +39,7 @@ export class SettingOperatorService {
       operator_name: dto.operator_name.trim(),
       description: dto.description?.trim(),
     };
-    const result = await this.repository.upsertImportRow(row);
+    const result = await this.repository.upsertImportRow(row, name);
 
     await this.syncEquipmentStatusOperator(row);
 
@@ -67,7 +67,7 @@ export class SettingOperatorService {
     return { count: result.count };
   }
 
-  async importExcel(file: Express.Multer.File) {
+  async importExcel(file: Express.Multer.File, name: string | null) {
     if (!file) {
       this.logger.warn('[importExcel] File tidak ditemukan');
       throw new BadRequestException('File wajib diunggah');
@@ -255,6 +255,7 @@ export class SettingOperatorService {
         operator_name: row.operator_name,
         description: row.description,
       })),
+      name,
     );
 
     for (const row of uniqueRows) {
@@ -332,7 +333,7 @@ export class SettingOperatorService {
     return { date, equipment_id, shift, operator_name };
   }
 
-  async update(id: string, dto: UpdateSettingOperatorDto) {
+  async update(id: string, dto: UpdateSettingOperatorDto, name: string | null) {
     const existing = await this.repository.findById(BigInt(id));
     if (!existing) {
       throw new NotFoundException(`Setting operator with ID '${id}' not found`);
@@ -345,6 +346,7 @@ export class SettingOperatorService {
     if (dto.operator_name !== undefined) data.operator_name = dto.operator_name;
     if (dto.description !== undefined) data.description = dto.description;
     data.updated_at = new Date();
+    data.updated_by = name;
     const record = await this.repository.update(BigInt(id), data);
 
     // Sinkronkan perubahan ke equipment_status + socket memakai kunci yang

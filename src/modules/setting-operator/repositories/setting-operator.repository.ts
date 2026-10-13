@@ -20,6 +20,7 @@ export class SettingOperatorRepository {
 
   async upsertImportRow(
     row: Prisma.daily_setting_operatorUncheckedCreateInput,
+    name: string | null,
   ): Promise<{
     record: daily_setting_operator;
     created: number;
@@ -41,12 +42,15 @@ export class SettingOperatorRepository {
             operator_name: row.operator_name,
             description: row.description,
             updated_at: new Date(),
+            updated_by: name,
           },
         });
         return { record, created: 0, updated: 1 };
       }
 
-      const record = await tx.daily_setting_operator.create({ data: row });
+      const record = await tx.daily_setting_operator.create({
+        data: { ...row, created_by: name },
+      });
       return { record, created: 1, updated: 0 };
     });
   }
@@ -84,6 +88,7 @@ export class SettingOperatorRepository {
 
   async upsertImportRows(
     rows: Prisma.daily_setting_operatorUncheckedCreateInput[],
+    name: string | null,
   ): Promise<{ created: number; updated: number }> {
     return await this.prisma.$transaction(async (tx) => {
       let created = 0;
@@ -106,11 +111,14 @@ export class SettingOperatorRepository {
               operator_name: row.operator_name,
               description: row.description,
               updated_at: new Date(),
+              updated_by: name,
             },
           });
           updated++;
         } else {
-          await tx.daily_setting_operator.create({ data: row });
+          await tx.daily_setting_operator.create({
+            data: { ...row, created_by: name },
+          });
           created++;
         }
       }

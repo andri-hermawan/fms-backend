@@ -70,7 +70,12 @@ export class AuthService {
     }
 
     // 3. Siapkan Payload
-    const payload = { email: user.email, sub: user.id, role: user.role };
+    const payload = {
+      email: user.email,
+      sub: user.id,
+      role: user.role,
+      name: user.name,
+    };
 
     // 4. Generate Tokens
     const tokens = await this.generateTokens(payload);
@@ -120,7 +125,12 @@ export class AuthService {
 
     // 2. Ambil data user terbaru untuk payload
     const user = await this.usersService.findOne(session.user_id);
-    const payload = { email: user.email, sub: user.id, role: user.role };
+    const payload = {
+      email: user.email,
+      sub: user.id,
+      role: user.role,
+      name: user.name,
+    };
 
     // 3. Generate sepasang token baru (Rotate Refresh Token)
     const tokens = await this.generateTokens(payload);
