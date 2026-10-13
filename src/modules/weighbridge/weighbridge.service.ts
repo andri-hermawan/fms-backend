@@ -18,7 +18,7 @@ import { Prisma } from '@prisma/client';
 export class WeighbridgeService {
   constructor(private readonly repository: WeighbridgeRepository) {}
 
-  async create(dto: CreateWeighbridgeDto) {
+  async create(dto: CreateWeighbridgeDto, name: string | null) {
     const data = {
       date_at: this.parseDate(dto.date_at),
       shift: dto.shift,
@@ -37,6 +37,7 @@ export class WeighbridgeService {
       tare_operator: dto.tare_operator,
       description: dto.description,
       location: dto.location,
+      created_by: name,
     };
     return this.serialize(await this.repository.create(data));
   }
@@ -65,7 +66,7 @@ export class WeighbridgeService {
     return { count: result.count };
   }
 
-  async importExcel(file: Express.Multer.File) {
+  async importExcel(file: Express.Multer.File, name: string | null) {
     if (!file) {
       throw new BadRequestException('File wajib diunggah');
     }
@@ -211,7 +212,7 @@ export class WeighbridgeService {
       description: row.description,
       location: row.location,
     }));
-    const result = await this.repository.upsertImportRows(persistenceRows);
+    const result = await this.repository.upsertImportRows(persistenceRows, name);
     const skipped = rows.length - uniqueRows.length;
 
     return {
@@ -248,16 +249,25 @@ export class WeighbridgeService {
     if (ticket_no) where.ticket_no = ticket_no;
     if (equipment_code) where.equipment_code = equipment_code;
 
-    const [data, total] = await this.repository.findAll({
-      skip,
-      take: limit,
-      where,
-      orderBy: { date_at: 'desc' },
-    });
+    const [[data, total], totalNet] = await Promise.all([
+      this.repository.findAll({
+        skip,
+        take: limit,
+        where,
+        orderBy: { date_at: 'desc' },
+      }),
+      this.repository.sumNet(where),
+    ]);
 
     return {
       data: this.serialize(data),
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        total_net: Number(totalNet.toFixed(2)),
+      },
     };
   }
 
@@ -554,7 +564,7 @@ export class WeighbridgeService {
     return items.length > 0 ? Array.from(new Set(items)) : undefined;
   }
 
-  async update(id: string, dto: UpdateWeighbridgeDto) {
+  async update(id: string, dto: UpdateWeighbridgeDto, name: string | null) {
     const existing = await this.repository.findById(BigInt(id));
     if (!existing) {
       throw new NotFoundException(`Weighbridge with ID '${id}' not found`);
@@ -591,6 +601,7 @@ export class WeighbridgeService {
       }
     }
     data.updated_at = new Date();
+    data.updated_by = name;
     return this.serialize(await this.repository.update(BigInt(id), data));
   }
 

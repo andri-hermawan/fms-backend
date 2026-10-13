@@ -30,6 +30,7 @@ import { QueryWeighbridgeDto } from './dto/query-weighbridge.dto';
 import { QueryWeighbridgeRitaseDailyDto } from './dto/query-weighbridge-ritase-daily.dto';
 import { QueryWeighbridgePayloadDailyDto } from './dto/query-weighbridge-payload-daily.dto';
 import { QueryWeighbridgeProductionDailyDto } from './dto/query-weighbridge-production-daily.dto';
+import { GetUser } from '../../core/decorators/get-user.decorator';
 
 @ApiTags('Weighbridge')
 @ApiBearerAuth()
@@ -44,8 +45,11 @@ export class WeighbridgeController {
     status: 201,
     description: 'Weighbridge berhasil dibuat.',
   })
-  create(@Body() dto: CreateWeighbridgeDto) {
-    return this.weighbridgeService.create(dto);
+  create(
+    @Body() dto: CreateWeighbridgeDto,
+    @GetUser('name') name: string | null,
+  ) {
+    return this.weighbridgeService.create(dto, name);
   }
 
   @Post('import')
@@ -60,8 +64,11 @@ export class WeighbridgeController {
     },
   })
   @UseInterceptors(FileInterceptor('file'))
-  importExcel(@UploadedFile() file: Express.Multer.File) {
-    return this.weighbridgeService.importExcel(file);
+  importExcel(
+    @UploadedFile() file: Express.Multer.File,
+    @GetUser('name') name: string | null,
+  ) {
+    return this.weighbridgeService.importExcel(file, name);
   }
 
   @Get()
@@ -213,8 +220,12 @@ export class WeighbridgeController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Mengupdate weighbridge' })
-  update(@Param('id') id: string, @Body() dto: UpdateWeighbridgeDto) {
-    return this.weighbridgeService.update(id, dto);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateWeighbridgeDto,
+    @GetUser('name') name: string | null,
+  ) {
+    return this.weighbridgeService.update(id, dto, name);
   }
 
   @Delete(':id')

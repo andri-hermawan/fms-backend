@@ -29,6 +29,7 @@ import type { Express } from 'express';
 import { UpdateSettingOperatorDto } from './dto/update-setting-operator.dto';
 import { QuerySettingOperatorDto } from './dto/query-setting-operator.dto';
 import { QueryOperatorNameDto } from './dto/query-operator-name.dto';
+import { GetUser } from '../../core/decorators/get-user.decorator';
 
 @ApiTags('Setting Operator')
 @ApiBearerAuth()
@@ -45,8 +46,11 @@ export class SettingOperatorController {
     status: 201,
     description: 'Setting operator berhasil dibuat.',
   })
-  create(@Body() dto: CreateSettingOperatorDto) {
-    return this.settingOperatorService.create(dto);
+  create(
+    @Body() dto: CreateSettingOperatorDto,
+    @GetUser('name') name: string | null,
+  ) {
+    return this.settingOperatorService.create(dto, name);
   }
 
   @Post('import')
@@ -61,8 +65,11 @@ export class SettingOperatorController {
     },
   })
   @UseInterceptors(FileInterceptor('file'))
-  importExcel(@UploadedFile() file: Express.Multer.File) {
-    return this.settingOperatorService.importExcel(file);
+  importExcel(
+    @UploadedFile() file: Express.Multer.File,
+    @GetUser('name') name: string | null,
+  ) {
+    return this.settingOperatorService.importExcel(file, name);
   }
 
   @Get()
@@ -103,8 +110,12 @@ export class SettingOperatorController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Mengupdate setting operator' })
-  update(@Param('id') id: string, @Body() dto: UpdateSettingOperatorDto) {
-    return this.settingOperatorService.update(id, dto);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateSettingOperatorDto,
+    @GetUser('name') name: string | null,
+  ) {
+    return this.settingOperatorService.update(id, dto, name);
   }
 
   @Delete(':id')

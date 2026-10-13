@@ -28,6 +28,7 @@ import type { Express } from 'express';
 import { UpdateBreakdownStatusDto } from './dto/update-breakdown-status.dto';
 import { QueryBreakdownStatusDto } from './dto/query-breakdown-status.dto';
 import { QueryBreakdownStatusDailyDto } from './dto/query-breakdown-status-daily.dto';
+import { GetUser } from '../../core/decorators/get-user.decorator';
 
 @ApiTags('Breakdown Status')
 @ApiBearerAuth()
@@ -44,8 +45,11 @@ export class BreakdownStatusController {
     status: 201,
     description: 'Breakdown status berhasil dibuat.',
   })
-  create(@Body() dto: CreateBreakdownStatusDto) {
-    return this.breakdownStatusService.create(dto);
+  create(
+    @Body() dto: CreateBreakdownStatusDto,
+    @GetUser('name') name: string | null,
+  ) {
+    return this.breakdownStatusService.create(dto, name);
   }
 
   @Post('import')
@@ -60,8 +64,11 @@ export class BreakdownStatusController {
     },
   })
   @UseInterceptors(FileInterceptor('file'))
-  importExcel(@UploadedFile() file: Express.Multer.File) {
-    return this.breakdownStatusService.importExcel(file);
+  importExcel(
+    @UploadedFile() file: Express.Multer.File,
+    @GetUser('name') name: string | null,
+  ) {
+    return this.breakdownStatusService.importExcel(file, name);
   }
 
   @Get()
@@ -157,8 +164,12 @@ export class BreakdownStatusController {
       },
     },
   })
-  update(@Param('id') id: string, @Body() dto: UpdateBreakdownStatusDto) {
-    return this.breakdownStatusService.update(id, dto);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateBreakdownStatusDto,
+    @GetUser('name') name: string | null,
+  ) {
+    return this.breakdownStatusService.update(id, dto, name);
   }
 
   @Delete(':id')

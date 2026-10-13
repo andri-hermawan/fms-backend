@@ -31,6 +31,15 @@ export class WeighbridgeRepository {
     ]);
   }
 
+  /** Total net seluruh data sesuai filter (tidak terpengaruh paging). */
+  async sumNet(where?: Prisma.weighbridgeWhereInput): Promise<number> {
+    const result = await this.prisma.weighbridge.aggregate({
+      where,
+      _sum: { net: true },
+    });
+    return Number(result._sum.net ?? 0);
+  }
+
   async findById(id: bigint): Promise<weighbridge | null> {
     return await this.prisma.weighbridge.findUnique({ where: { id } });
   }
@@ -169,6 +178,7 @@ export class WeighbridgeRepository {
 
   async upsertImportRows(
     rows: Prisma.weighbridgeUncheckedCreateInput[],
+    name: string | null,
   ): Promise<{ created: number; updated: number }> {
     return await this.prisma.$transaction(async (tx) => {
       let created = 0;
@@ -186,11 +196,13 @@ export class WeighbridgeRepository {
         if (existing) {
           await tx.weighbridge.update({
             where: { id: existing.id },
-            data: { ...row, updated_at: new Date() },
+            data: { ...row, updated_at: new Date(), updated_by: name },
           });
           updated++;
         } else {
-          await tx.weighbridge.create({ data: row });
+          await tx.weighbridge.create({
+            data: { ...row, created_by: name },
+          });
           created++;
         }
       }

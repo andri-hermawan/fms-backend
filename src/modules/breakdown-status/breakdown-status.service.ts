@@ -25,7 +25,7 @@ export class BreakdownStatusService {
     private readonly wsGateway: WebSocketGatewayService,
   ) {}
 
-  async create(dto: CreateBreakdownStatusDto) {
+  async create(dto: CreateBreakdownStatusDto, name: string | null) {
     console.log('[BREAKDOWN-CREATE-DATE-INPUT]', {
       date_at: dto.date_at,
       type: typeof dto.date_at,
@@ -70,7 +70,7 @@ export class BreakdownStatusService {
       equipment_code: data.equipment_code,
       shift: data.shift,
     });
-    const result = await this.repository.upsertImportRow(data);
+    const result = await this.repository.upsertImportRow(data, name);
     console.log('[BREAKDOWN-CREATE-DATE-AFTER-UPSERT]', {
       inputDateToISOString: data.date_at.toISOString(),
       returnedDateAt: result.record.date_at,
@@ -116,7 +116,7 @@ export class BreakdownStatusService {
     return { count: result.count };
   }
 
-  async importExcel(file: Express.Multer.File) {
+  async importExcel(file: Express.Multer.File, name: string | null) {
     if (!file) {
       throw new BadRequestException('File wajib diunggah');
     }
@@ -346,7 +346,7 @@ export class BreakdownStatusService {
         location: row.location,
       };
     });
-    const result = await this.repository.upsertImportRows(persistenceRows);
+    const result = await this.repository.upsertImportRows(persistenceRows, name);
 
     for (const row of uniqueRows) {
       await this.syncEquipmentStatusBreakdown(row);
@@ -445,7 +445,11 @@ export class BreakdownStatusService {
     });
   }
 
-  async update(id: string, dto: UpdateBreakdownStatusDto) {
+  async update(
+    id: string,
+    dto: UpdateBreakdownStatusDto,
+    name: string | null,
+  ) {
     const existing = await this.repository.findById(BigInt(id));
     if (!existing) {
       throw new NotFoundException(`Breakdown status with ID '${id}' not found`);
@@ -477,6 +481,7 @@ export class BreakdownStatusService {
     if (dto.description !== undefined) data.description = dto.description;
     if (dto.location !== undefined) data.location = dto.location;
     data.updated_at = new Date();
+    data.updated_by = name;
     const record = await this.repository.update(BigInt(id), data);
 
     // Sinkronkan perubahan ke equipment_status + socket memakai kunci yang
