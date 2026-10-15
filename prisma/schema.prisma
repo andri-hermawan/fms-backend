@@ -507,3 +507,15 @@ model report_schedule_logs {
 
   @@index([schedule_id, run_date], map: "idx_report_schedule_logs_schedule")
 }
+
+model equipment_activation {
+  id             BigInt    @id @default(autoincrement())
+  date_at        DateTime? @db.Date
+  equipment_code String?   @db.VarChar(50)
+  status         String?   @db.VarChar(20)
+  description    String?   @db.VarChar(255)
+  created_at     DateTime? @db.Timestamp(6)
+  created_by     String?   @db.VarChar(50)
+  updated_at     DateTime? @db.Timestamp(6)
+  updated_by     String?   @db.VarChar(50)
+}

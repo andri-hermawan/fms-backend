@@ -27,6 +27,7 @@ import { BreakdownStatusModule } from './modules/breakdown-status/breakdown-stat
 import { WeighbridgeModule } from './modules/weighbridge/weighbridge.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ReportSchedulesModule } from './modules/report-schedules/report-schedules.module';
+import { EquipmentActivationModule } from './modules/equipment-activation/equipment-activation.module';
 
 @Module({
   imports: [
@@ -87,6 +88,7 @@ import { ReportSchedulesModule } from './modules/report-schedules/report-schedul
     BreakdownStatusModule,
     WeighbridgeModule,
     ReportSchedulesModule,
+    EquipmentActivationModule,
     // Nanti module seperti Companies, Users, dll akan masuk ke sini
   ],
   controllers: [AppController], // Registrasikan AppController di sini
