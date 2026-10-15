@@ -8,14 +8,14 @@ datasource db {
 }
 
 model alert_categories {
-  id                  String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  alert_category_code String?   @unique @db.VarChar(50)
-  alert_category_name String?   @db.VarChar(150)
-  status              String?   @db.VarChar(20)
-  created_at          DateTime? @default(now()) @db.Timestamp(6)
-  created_by          String?   @db.Uuid
-  updated_at          DateTime? @db.Timestamp(6)
-  updated_by          String?   @db.Uuid
+  id                  String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  alert_category_code String?       @unique @db.VarChar(50)
+  alert_category_name String?       @db.VarChar(150)
+  status              String?       @db.VarChar(20)
+  created_at          DateTime?     @default(now()) @db.Timestamp(6)
+  created_by          String?       @db.Uuid
+  updated_at          DateTime?     @db.Timestamp(6)
+  updated_by          String?       @db.Uuid
   alerts              alerts[]
   alert_rules         alert_rules[]
 }
@@ -471,4 +471,39 @@ model fuel_calibrations {
   @@unique([equipment_id, fuel_volume], map: "uq_fuel_calibration")
   @@index([equipment_id], map: "idx_fuel_calibration_equipment")
   @@index([equipment_id, fuel_level], map: "idx_fuel_calibration_level")
+}
+
+model report_schedules {
+  id                   String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                 String                 @db.VarChar(150)
+  report_type          String                 @db.VarChar(50)
+  shift                String                 @db.VarChar(100)
+  date_offset          Int                    @default(-1)
+  send_time            String                 @default("09:00") @db.VarChar(5)
+  timezone             String                 @default("Asia/Jakarta") @db.VarChar(50)
+  user_ids             String[]               @default([]) @db.Uuid
+  status               String?                @default("active") @db.VarChar(20)
+  last_run_at          DateTime?              @db.Timestamptz(6)
+  created_at           DateTime?              @default(now()) @db.Timestamptz(6)
+  created_by           String?                @db.Uuid
+  updated_at           DateTime?              @db.Timestamptz(6)
+  updated_by           String?                @db.Uuid
+  report_schedule_logs report_schedule_logs[]
+
+  @@index([status, send_time], map: "idx_report_schedules_status")
+}
+
+model report_schedule_logs {
+  id               String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  schedule_id      String           @db.Uuid
+  run_date         DateTime         @db.Date
+  report_date      DateTime         @db.Date
+  trigger          String           @default("schedule") @db.VarChar(20)
+  status           String           @db.VarChar(20)
+  recipients       Int              @default(0)
+  error_message    String?
+  created_at       DateTime?        @default(now()) @db.Timestamptz(6)
+  report_schedules report_schedules @relation(fields: [schedule_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([schedule_id, run_date], map: "idx_report_schedule_logs_schedule")
 }

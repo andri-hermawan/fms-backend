@@ -25,6 +25,8 @@ import { WebSocketModule } from './common/websocket/websocket.module';
 import { SettingOperatorModule } from './modules/setting-operator/setting-operator.module';
 import { BreakdownStatusModule } from './modules/breakdown-status/breakdown-status.module';
 import { WeighbridgeModule } from './modules/weighbridge/weighbridge.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { ReportSchedulesModule } from './modules/report-schedules/report-schedules.module';
 
 @Module({
   imports: [
@@ -43,6 +45,15 @@ import { WeighbridgeModule } from './modules/weighbridge/weighbridge.module';
         JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
         CORS_ORIGIN: Joi.string().optional(),
         TELTONIKA_TCP_PORT: Joi.number().default(5550),
+        // Pengiriman report via email; dikosongkan = fitur kirim belum aktif.
+        SMTP_HOST: Joi.string().allow('').optional(),
+        SMTP_PORT: Joi.number().default(587),
+        SMTP_SECURE: Joi.boolean().default(false),
+        SMTP_USER: Joi.string().allow('').optional(),
+        SMTP_PASS: Joi.string().allow('').optional(),
+        MAIL_FROM: Joi.string().allow('').optional(),
+        FRONTEND_URL: Joi.string().allow('').optional(),
+        PUPPETEER_EXECUTABLE_PATH: Joi.string().allow('').optional(),
       }),
     }),
     // Rate Limiting: 100 request / menit per IP
@@ -52,6 +63,7 @@ import { WeighbridgeModule } from './modules/weighbridge/weighbridge.module';
         limit: 100,
       },
     ]),
+    ScheduleModule.forRoot(),
     // Core Modules
     WebSocketModule,
     DatabaseModule,
@@ -74,6 +86,7 @@ import { WeighbridgeModule } from './modules/weighbridge/weighbridge.module';
     SettingOperatorModule,
     BreakdownStatusModule,
     WeighbridgeModule,
+    ReportSchedulesModule,
     // Nanti module seperti Companies, Users, dll akan masuk ke sini
   ],
   controllers: [AppController], // Registrasikan AppController di sini
