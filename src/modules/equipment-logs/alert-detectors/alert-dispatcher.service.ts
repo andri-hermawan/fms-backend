@@ -5,6 +5,7 @@ import { EquipmentStatusService } from '../../equipment-status/equipment-status.
 import { WebSocketGatewayService } from '../../../common/websocket/websocket.gateway';
 import { EquipmentSnapshotService } from '../telemetry/equipment-snapshot.service';
 import { AlertInfo } from '../telemetry/telemetry-context';
+import { AlertNotifierService } from './alert-notifier.service';
 
 export interface AlertDispatchParams {
   equipmentId: string;
@@ -24,7 +25,8 @@ export interface AlertDispatchParams {
 /**
  * Langkah yang sama untuk semua alert baru:
  * simpan alert -> increment alert_count -> emit new-alert ->
- * emit alert summary -> emit equipment status (alert_count terbaru).
+ * emit alert summary -> emit equipment status (alert_count terbaru)
+ * -> notifikasi WhatsApp (background, tidak ditunggu).
  */
 @Injectable()
 export class AlertDispatcherService {
@@ -35,6 +37,7 @@ export class AlertDispatcherService {
     private readonly equipmentStatusService: EquipmentStatusService,
     private readonly snapshotService: EquipmentSnapshotService,
     private readonly wsGateway: WebSocketGatewayService,
+    private readonly notifier: AlertNotifierService,
   ) {}
 
   async dispatch({
@@ -79,6 +82,19 @@ export class AlertDispatcherService {
 
     await this.emitAlertSummaryUpdate(summaryTime);
     await this.snapshotService.emitAfterAlert(equipmentId);
+
+    // Sengaja tanpa await: server WA tidak boleh menahan pipeline telemetry.
+    void this.notifier.notify({
+      equipmentId,
+      logId,
+      categoryId,
+      status,
+      createdAt,
+      info,
+      resolvedAt,
+      event,
+      summaryTime,
+    });
   }
 
   // Emit alert summary update fetched from alertsService.findAlertSummary

@@ -52,4 +52,10 @@ export class CreateUserDto {
   @IsOptional()
   @MaxLength(20)
   status?: string;
+
+  @ApiPropertyOptional({ example: '+6281234567890' })
+  @IsString()
+  @IsOptional()
+  @MaxLength(20)
+  phone_number?: string;
 }

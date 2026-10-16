@@ -14,6 +14,11 @@ const rule = (
     speed_limit?: number | null;
     fuel_threshold?: number | null;
   },
+  recipients: {
+    id: string;
+    phone_number: string | null;
+    status?: string;
+  }[] = [],
 ) => ({
   project_id: scope.project_id ?? null,
   segment: scope.segment ?? null,
@@ -21,6 +26,9 @@ const rule = (
   speed_limit: dec(values.speed_limit ?? null),
   fuel_threshold: dec(values.fuel_threshold ?? null),
   alert_categories: { alert_category_code: code },
+  alert_rule_recipients: recipients.map((u) => ({
+    users: { name: u.id, status: 'active', ...u },
+  })),
 });
 
 const makeProvider = (
@@ -93,6 +101,45 @@ describe('AlertRuleProvider', () => {
     expect(rules[ALERT_CODES.OFF_TRACK].categoryId).toBe(
       DEFAULT_ALERT_RULES[ALERT_CODES.OFF_TRACK].categoryId,
     );
+  });
+
+  it('penerima WA = gabungan global + project + segment, tanpa duplikat', async () => {
+    const FUD = ALERT_CODES.FUEL_DECREASE_ENGINE_ON;
+    const categoryId = DEFAULT_ALERT_RULES[FUD].categoryId;
+    const { provider } = makeProvider([
+      rule(FUD, {}, {}, [{ id: 'u-mgr', phone_number: '0811' }]),
+      rule(FUD, { project_id: PROJECT }, {}, [
+        { id: 'u-pic', phone_number: '0812' },
+        { id: 'u-mgr', phone_number: '0811' },
+        { id: 'u-nophone', phone_number: null },
+        { id: 'u-off', phone_number: '0813', status: 'inactive' },
+      ]),
+      rule(FUD, { project_id: PROJECT, segment: 'Ramp A' }, {}, [
+        { id: 'u-seg', phone_number: '0814' },
+      ]),
+    ]);
+
+    const ids = async (project: string | null, segment: string) =>
+      (await provider.resolveRecipients(categoryId, project, segment))
+        .map((r) => r.userId)
+        .sort();
+
+    expect(await ids(PROJECT, 'Ramp A')).toEqual(['u-mgr', 'u-pic', 'u-seg']);
+    expect(await ids(PROJECT, 'Ramp B')).toEqual(['u-mgr', 'u-pic']);
+    expect(await ids('p-2', 'Ramp A')).toEqual(['u-mgr']);
+    expect(await ids(null, 'Ramp A')).toEqual(['u-mgr']);
+  });
+
+  it('tanpa penerima di semua level = tidak ada WA', async () => {
+    const OVS = ALERT_CODES.OVERSPEED;
+    const { provider } = makeProvider([rule(OVS, {}, { speed_limit: 50 })]);
+    await expect(
+      provider.resolveRecipients(
+        DEFAULT_ALERT_RULES[OVS].categoryId,
+        PROJECT,
+        'Ramp A',
+      ),
+    ).resolves.toEqual([]);
   });
 
   it('invalidate memaksa reload pada resolve berikutnya', async () => {

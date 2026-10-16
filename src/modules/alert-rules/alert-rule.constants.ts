@@ -18,6 +18,13 @@ export interface AlertRule {
 
 export type ResolvedAlertRules = Record<AlertCode, AlertRule>;
 
+// Penerima notifikasi WhatsApp alert (dari alert_rule_recipients -> users).
+export interface AlertRecipient {
+  userId: string;
+  name: string;
+  phoneNumber: string;
+}
+
 // Fallback ketika tabel alert_rules belum ada / kosong / gagal dibaca.
 // Nilai ini sama persis dengan threshold yang sebelumnya ditulis di kode.
 export const DEFAULT_ALERT_RULES: ResolvedAlertRules = {

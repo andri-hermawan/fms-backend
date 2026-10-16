@@ -22,16 +22,22 @@ export class AlertRulesService {
     private readonly ruleProvider: AlertRuleProvider,
   ) {}
 
-  async create(dto: CreateAlertRuleDto) {
+  async create({ recipient_user_ids, ...dto }: CreateAlertRuleDto) {
     const projectId = dto.project_id ?? null;
     const segment = normalizeSegmentInput(dto.segment);
     await this.assertScope(dto.alert_category_id, projectId, segment);
+    await this.assertRecipients(recipient_user_ids);
 
     const created = await this.repository.create({
       ...dto,
       project_id: projectId,
       segment,
       status: dto.status || 'active',
+      ...(recipient_user_ids?.length && {
+        alert_rule_recipients: {
+          create: recipient_user_ids.map((user_id) => ({ user_id })),
+        },
+      }),
     });
     this.ruleProvider.invalidate();
     return created;
@@ -76,7 +82,7 @@ export class AlertRulesService {
     return rule;
   }
 
-  async update(id: string, dto: UpdateAlertRuleDto) {
+  async update(id: string, { recipient_user_ids, ...dto }: UpdateAlertRuleDto) {
     const existing = await this.findOne(id);
 
     const categoryId = dto.alert_category_id ?? existing.alert_category_id;
@@ -87,10 +93,18 @@ export class AlertRulesService {
         ? normalizeSegmentInput(dto.segment)
         : existing.segment;
     await this.assertScope(categoryId, projectId, segment, id);
+    await this.assertRecipients(recipient_user_ids);
 
     const updated = await this.repository.update(id, {
       ...dto,
       ...(dto.segment !== undefined && { segment }),
+      // Dikirim = daftar penerima diganti seluruhnya; tidak dikirim = tetap.
+      ...(recipient_user_ids !== undefined && {
+        alert_rule_recipients: {
+          deleteMany: {},
+          create: recipient_user_ids.map((user_id) => ({ user_id })),
+        },
+      }),
       updated_at: new Date(),
     });
     this.ruleProvider.invalidate();
@@ -102,6 +116,16 @@ export class AlertRulesService {
     const deleted = await this.repository.delete(id);
     this.ruleProvider.invalidate();
     return deleted;
+  }
+
+  private async assertRecipients(userIds?: string[]) {
+    if (!userIds?.length) return;
+    const found = await this.repository.countUsersByIds(userIds);
+    if (found !== userIds.length) {
+      throw new BadRequestException(
+        'Sebagian user penerima WhatsApp tidak ditemukan',
+      );
+    }
   }
 
   private async assertScope(
