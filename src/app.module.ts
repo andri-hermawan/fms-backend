@@ -55,6 +55,9 @@ import { EquipmentActivationModule } from './modules/equipment-activation/equipm
         MAIL_FROM: Joi.string().allow('').optional(),
         FRONTEND_URL: Joi.string().allow('').optional(),
         PUPPETEER_EXECUTABLE_PATH: Joi.string().allow('').optional(),
+        // Notifikasi WA alert; dikosongkan = alert hanya tersimpan di database.
+        WHATSAPP_API_URL: Joi.string().allow('').optional(),
+        WHATSAPP_TIMEOUT_MS: Joi.number().default(10000),
       }),
     }),
     // Rate Limiting: 100 request / menit per IP

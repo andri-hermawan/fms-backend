@@ -22,7 +22,7 @@ export class UsersService {
     return userWithoutPassword;
   }
 
-  async create(dto: CreateUserDto) {
+  async create(dto: CreateUserDto, name: string | null) {
     // 1. Validasi Input Dasar (Sebaiknya ini sudah ditangani @IsNotEmpty di DTO,
     // tapi tidak apa-apa untuk double check)
     if (!dto.email || !dto.password) {
@@ -45,9 +45,11 @@ export class UsersService {
     const user = await this.repository.create({
       name: dto.name,
       email: dto.email,
+      phone_number: dto.phone_number,
       password_hash: hashedPassword,
       role: dto.role,
       status: dto.status || 'active',
+      created_by: name,
       // JIKA dto.project_id ada, gunakan koneksi relasi Prisma
       ...(dto.project_id && {
         projects: {
@@ -110,7 +112,7 @@ export class UsersService {
     return user;
   }
 
-  async update(id: string, dto: UpdateUserDto) {
+  async update(id: string, dto: UpdateUserDto, name: string | null) {
     await this.findOne(id); // Pastikan user ada
 
     if (dto.email) {
@@ -123,6 +125,7 @@ export class UsersService {
     const updateData: Prisma.usersUpdateInput = {
       name: dto.name,
       email: dto.email,
+      phone_number: dto.phone_number,
       role: dto.role,
       status: dto.status,
       // JIKA dto.project_id ada, gunakan koneksi relasi Prisma
@@ -132,6 +135,7 @@ export class UsersService {
         },
       }),
       updated_at: new Date(),
+      updated_by: name,
     };
 
     // Jika user mengupdate password

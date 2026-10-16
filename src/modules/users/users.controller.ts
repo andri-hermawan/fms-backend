@@ -21,6 +21,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { QueryUserDto } from './dto/query-user.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { GetUser } from '../../core/decorators/get-user.decorator';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -32,8 +33,11 @@ export class UsersController {
   @Post()
   @ApiOperation({ summary: 'Mendaftarkan pengguna baru' })
   @ApiResponse({ status: 201, description: 'User berhasil dibuat.' })
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  create(
+    @Body() createUserDto: CreateUserDto,
+    @GetUser('name') name: string | null,
+  ) {
+    return this.usersService.create(createUserDto, name);
   }
 
   @Get()
@@ -55,8 +59,9 @@ export class UsersController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateUserDto: UpdateUserDto,
+    @GetUser('name') name: string | null,
   ) {
-    return this.usersService.update(id, updateUserDto);
+    return this.usersService.update(id, updateUserDto, name);
   }
 
   @Delete(':id')

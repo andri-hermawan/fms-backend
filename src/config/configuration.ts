@@ -21,6 +21,12 @@ export default () => ({
     // Opsional: path Chromium/Chrome sistem (kosong = pakai bawaan puppeteer).
     chromiumPath: process.env.PUPPETEER_EXECUTABLE_PATH,
   },
+  whatsapp: {
+    // Endpoint server WhatsApp (kosong = notifikasi WA alert tidak dikirim).
+    apiUrl: process.env.WHATSAPP_API_URL,
+    timeoutMs:
+      parseInt(process.env.WHATSAPP_TIMEOUT_MS ?? '10000', 10) || 10000,
+  },
   jwt: {
     secret: process.env.JWT_SECRET,
     // Access token berumur pendek (misal: 1 jam)

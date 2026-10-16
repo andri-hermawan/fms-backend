@@ -8,6 +8,7 @@ import { TelemetryIngestService } from './telemetry/telemetry-ingest.service';
 import { EquipmentSnapshotService } from './telemetry/equipment-snapshot.service';
 import { GeofenceEventService } from './geofence-events/geofence-event.service';
 import { AlertDispatcherService } from './alert-detectors/alert-dispatcher.service';
+import { AlertNotifierService } from './alert-detectors/alert-notifier.service';
 import { OffTrackDetector } from './alert-detectors/off-track.detector';
 import { SpeedDetector } from './alert-detectors/speed.detector';
 import { FuelDetector } from './alert-detectors/fuel.detector';
@@ -22,6 +23,7 @@ import { GeofencesModule } from '../geofences/geofences.module';
 import { ShiftsModule } from '../shifts/shifts.module';
 import { SettingOperatorModule } from '../setting-operator/setting-operator.module';
 import { BreakdownStatusModule } from '../breakdown-status/breakdown-status.module';
+import { WhatsappModule } from '../whatsapp/whatsapp.module';
 
 @Module({
   imports: [
@@ -36,6 +38,7 @@ import { BreakdownStatusModule } from '../breakdown-status/breakdown-status.modu
     ShiftsModule,
     SettingOperatorModule,
     BreakdownStatusModule,
+    WhatsappModule,
   ],
   controllers: [EquipmentLogsController],
   providers: [
@@ -49,6 +52,7 @@ import { BreakdownStatusModule } from '../breakdown-status/breakdown-status.modu
     GeofenceEventService,
     // Alert detectors
     AlertDispatcherService,
+    AlertNotifierService,
     OffTrackDetector,
     SpeedDetector,
     FuelDetector,

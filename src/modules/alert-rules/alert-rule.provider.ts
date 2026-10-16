@@ -5,6 +5,7 @@ import {
   ALERT_CODES,
   ALERT_RULES_CACHE_TTL_MS,
   AlertCode,
+  AlertRecipient,
   AlertRule,
   DEFAULT_ALERT_RULES,
   ResolvedAlertRules,
@@ -15,6 +16,8 @@ interface PartialRule {
   durationMinutes: number | null;
   speedLimit: number | null;
   fuelThreshold: number | null;
+  // Penerima WA level ini (user aktif yang punya nomor).
+  recipients: AlertRecipient[];
 }
 
 interface RuleSnapshot {
@@ -84,6 +87,42 @@ export class AlertRuleProvider {
     return resolved;
   }
 
+  /**
+   * Penerima WhatsApp untuk alert baru: gabungan (union) penerima rule aktif
+   * Global + Project + Segment yang cocok, tanpa duplikat user.
+   * Kosong = alert hanya tersimpan di database.
+   */
+  async resolveRecipients(
+    categoryId: string,
+    projectId: string | null | undefined,
+    segmentName: string | null | undefined,
+  ): Promise<AlertRecipient[]> {
+    const snapshot = await this.getSnapshot();
+    const code = ALL_CODES.find(
+      (c) =>
+        (snapshot.categoryIds.get(c) ?? DEFAULT_ALERT_RULES[c].categoryId) ===
+        categoryId,
+    );
+    if (!code) return [];
+
+    const segmentKey = normalizeSegment(segmentName ?? '');
+    const layers = [
+      snapshot.global.get(code),
+      projectId ? snapshot.project.get(`${code}|${projectId}`) : undefined,
+      projectId
+        ? snapshot.segment.get(`${code}|${projectId}|${segmentKey}`)
+        : undefined,
+    ];
+
+    const byUser = new Map<string, AlertRecipient>();
+    for (const layer of layers) {
+      for (const recipient of layer?.recipients ?? []) {
+        byUser.set(recipient.userId, recipient);
+      }
+    }
+    return [...byUser.values()];
+  }
+
   // Dipanggil setelah create/update/delete agar perubahan dari frontend langsung berlaku.
   invalidate() {
     this.loadedAt = 0;
@@ -130,6 +169,14 @@ export class AlertRuleProvider {
           durationMinutes: toNumber(rule.duration_minutes),
           speedLimit: toNumber(rule.speed_limit),
           fuelThreshold: toNumber(rule.fuel_threshold),
+          recipients: (rule.alert_rule_recipients ?? [])
+            .map((r) => r.users)
+            .filter((u) => u.status === 'active' && !!u.phone_number?.trim())
+            .map((u) => ({
+              userId: u.id,
+              name: u.name ?? '',
+              phoneNumber: u.phone_number!.trim(),
+            })),
         };
 
         if (!rule.project_id) {

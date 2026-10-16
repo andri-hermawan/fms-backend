@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayUnique,
+  IsArray,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -75,6 +77,18 @@ export class CreateAlertRuleDto {
   @IsString()
   @MaxLength(255)
   description?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'User penerima WhatsApp saat alert terjadi (nomor dari users.phone_number). Kosong = tidak kirim WA dari level ini.',
+    type: [String],
+    example: ['0b5d6a1e-2f0c-4c1d-9a55-3a4f8c2e7d11'],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID(undefined, { each: true })
+  recipient_user_ids?: string[];
 
   @ApiPropertyOptional({ example: 'active', default: 'active' })
   @IsOptional()

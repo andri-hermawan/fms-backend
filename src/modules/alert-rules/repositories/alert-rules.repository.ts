@@ -7,6 +7,12 @@ const RULE_INCLUDE = {
     select: { alert_category_code: true, alert_category_name: true },
   },
   projects: { select: { project_code: true, project_name: true } },
+  alert_rule_recipients: {
+    select: {
+      user_id: true,
+      users: { select: { id: true, name: true, phone_number: true } },
+    },
+  },
 } satisfies Prisma.alert_rulesInclude;
 
 @Injectable()
@@ -83,12 +89,30 @@ export class AlertRulesRepository {
     return rows;
   }
 
-  // Dipakai AlertRuleProvider: semua rule aktif beserta kode kategorinya.
+  // Dipakai AlertRuleProvider: semua rule aktif beserta kode kategori & penerima WA.
   async findActiveWithCategoryCode() {
     return await this.prisma.alert_rules.findMany({
       where: { status: 'active' },
-      include: { alert_categories: { select: { alert_category_code: true } } },
+      include: {
+        alert_categories: { select: { alert_category_code: true } },
+        alert_rule_recipients: {
+          select: {
+            users: {
+              select: {
+                id: true,
+                name: true,
+                phone_number: true,
+                status: true,
+              },
+            },
+          },
+        },
+      },
     });
+  }
+
+  async countUsersByIds(ids: string[]) {
+    return await this.prisma.users.count({ where: { id: { in: ids } } });
   }
 
   async findCategoriesByCodes(codes: string[]) {
