@@ -74,14 +74,24 @@ export class AlertsService {
     }
     if (id) where.id = BigInt(id);
     if (created_at || created_at_end) {
+      // Filter tanggal mengikuti hari operasional: mulai dari start_time
+      // shift pertama (WIB), bukan 00:00 kalender.
+      const opStart = await this.repository.findOperationalDayStart();
+      const DAY_MS = 24 * 60 * 60 * 1000;
       where.created_at = {};
 
       if (created_at) {
-        where.created_at.gte = new Date(`${created_at}T00:00:00.000+07:00`);
+        where.created_at.gte = new Date(
+          `${created_at}T${opStart}:00.000+07:00`,
+        );
       }
 
       if (created_at_end) {
-        where.created_at.lte = new Date(`${created_at_end}T23:59:59.999+07:00`);
+        where.created_at.lte = new Date(
+          new Date(`${created_at_end}T${opStart}:00.000+07:00`).getTime() +
+            DAY_MS -
+            1,
+        );
       }
     }
 
