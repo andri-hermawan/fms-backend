@@ -193,6 +193,20 @@ export class EquipmentLogsRepository {
     });
   }
 
+  // Log terakhir yang berada di dalam polygon (orig_fid <> 0): acuan arah
+  // perpindahan segment & status muatan setelah unit keluar polygon.
+  async findLastKnownSegment(equipment_id: string) {
+    return await this.prisma.equipment_logs.findFirst({
+      where: {
+        equipment_id,
+        orig_fid: { not: null },
+        NOT: { orig_fid: 0 },
+      },
+      select: { vessel_status: true, orig_fid: true },
+      orderBy: { time: 'desc' },
+    });
+  }
+
   async findStoppedOutsideStart(equipment_id: string) {
     const result = await this.prisma.$queryRaw<{ created_at: Date }[]>`
       SELECT created_at

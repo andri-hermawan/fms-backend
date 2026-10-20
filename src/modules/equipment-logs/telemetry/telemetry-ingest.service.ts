@@ -15,7 +15,11 @@ import { SpeedDetector } from '../alert-detectors/speed.detector';
 import { FuelDetector } from '../alert-detectors/fuel.detector';
 import { EquipmentSnapshotService } from './equipment-snapshot.service';
 import { locateInGeofence } from './calculators/geofence-locator';
-import { resolveVesselStatus } from './calculators/vessel-status';
+import {
+  needsLastKnownLookup,
+  resolveVesselStatus,
+  SegmentLog,
+} from './calculators/vessel-status';
 import { resolveOperationalStatus } from './calculators/operational-status';
 import { isInvalidFuelReading } from './calculators/fuel-reading';
 import {
@@ -114,8 +118,14 @@ export class TelemetryIngestService {
     // STEP 4: Load the latest log once; reuse it for all comparisons below.
     const lastLog = await this.repository.findByIdLastEquip(equipmentId);
 
-    // STEP 5: Determine vessel status from the current and previous geofence.
-    const vesselStatus = resolveVesselStatus(origFid, lastLog);
+    // STEP 5: Determine vessel status from the current geofence and the last
+    // log that was inside a polygon (status dipertahankan saat di luar polygon).
+    const lastKnown = await this.resolveLastKnownSegment(
+      equipmentId,
+      origFid,
+      lastLog,
+    );
+    const vesselStatus = resolveVesselStatus(origFid, lastKnown);
 
     // STEP 6: Determine operational status.
     const opStatus = resolveOperationalStatus({
@@ -293,6 +303,25 @@ export class TelemetryIngestService {
     }
 
     return serializeBigInt(savedLog);
+  }
+
+  // Acuan vessel status: log terakhir bila masih di dalam polygon, selain itu
+  // log terakhir di dalam polygon (query hanya saat diperlukan). Bila query
+  // gagal, jatuh ke log terakhir agar penyimpanan log tidak ikut gagal.
+  private async resolveLastKnownSegment(
+    equipmentId: string,
+    origFid: number,
+    lastLog: LastLog | null,
+  ): Promise<SegmentLog | null> {
+    if (!needsLastKnownLookup(origFid, lastLog)) return lastLog;
+    try {
+      return await this.repository.findLastKnownSegment(equipmentId);
+    } catch (e: unknown) {
+      this.logger.warn(
+        `[VesselStatus] gagal ambil segment terakhir equipment ${equipmentId}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return lastLog;
+    }
   }
 
   // Elapsed time from the previous log for operational status.

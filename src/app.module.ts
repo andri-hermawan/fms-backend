@@ -10,6 +10,7 @@ import { ProjectsModule } from './modules/projects/projects.module';
 import { EquipmentsModule } from './modules/equipments/equipments.module';
 import { DevicesModule } from './modules/devices/devices.module';
 import { EquipmentLogsModule } from './modules/equipment-logs/equipment-logs.module';
+import { DeviceGatewayModule } from './modules/device-gateway/device-gateway.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AlertCategoriesModule } from './modules/alert-categories/alert-categories.module';
 import { AlertRulesModule } from './modules/alert-rules/alert-rules.module';
@@ -82,6 +83,7 @@ import { EquipmentActivationModule } from './modules/equipment-activation/equipm
     AttributeGeoModule,
     ShiftsModule,
     EquipmentLogsModule,
+    DeviceGatewayModule,
     AlertsModule,
     GeofencesModule,
     FuelsModule,

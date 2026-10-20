@@ -21,6 +21,7 @@ export class FuelCalibrationsRepository {
           create: item,
           update: {
             fuel_level: item.fuel_level,
+            calibration_type: item.calibration_type,
             updated_at: new Date(),
             updated_by: item.created_by,
           },
@@ -42,6 +43,7 @@ export class FuelCalibrationsRepository {
       create: data,
       update: {
         fuel_level: data.fuel_level,
+        calibration_type: data.calibration_type,
         updated_at: new Date(),
         updated_by: data.created_by,
       },
@@ -182,6 +184,7 @@ export class FuelCalibrationsRepository {
       _max: {
         fuel_level: true,
         fuel_volume: true,
+        calibration_type: true,
       },
       orderBy: {
         equipment_id: 'asc',
@@ -211,6 +214,7 @@ export class FuelCalibrationsRepository {
         equipmentMap.get(item.equipment_id)?.equipment_alias ?? null,
       fuel_level: Number(item._max.fuel_level ?? 0),
       fuel_volume: Number(item._max.fuel_volume ?? 0),
+      calibration_type: item._max.calibration_type ?? 'LLS',
     }));
   }
 

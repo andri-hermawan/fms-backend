@@ -202,6 +202,18 @@ export class AlertsRepository {
     `;
   }
 
+  // Jam mulai hari operasional (HH:mm) = start_time shift urutan pertama.
+  async findOperationalDayStart(): Promise<string> {
+    const rows = await this.prisma.$queryRaw<{ start: string }[]>`
+      SELECT to_char(start_time, 'HH24:MI') AS start
+      FROM shifts
+      WHERE start_time IS NOT NULL
+      ORDER BY sequence ASC NULLS LAST
+      LIMIT 1
+    `;
+    return rows[0]?.start ?? '00:00';
+  }
+
   async findShiftStartHour(shift: string): Promise<number | null> {
     const rows = await this.prisma.$queryRaw<{ start_hour: number }[]>`
       SELECT EXTRACT(HOUR FROM start_time)::int AS start_hour

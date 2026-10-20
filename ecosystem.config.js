@@ -6,7 +6,7 @@
  *   pm2 save
  *   pm2 startup
  *
- * Catatan: SINGLE INSTANCE (instances: 1) karena TeltonikaTcpService
+ * Catatan: SINGLE INSTANCE (instances: 1) karena DeviceTcpService
  * menjalankan TCP server di port 5550 yang tidak bisa di-cluster.
  * Jika ingin scale HTTP, pisahkan TCP server ke proses terpisah.
  */
