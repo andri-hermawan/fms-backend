@@ -214,6 +214,105 @@ describe('needsLastKnownLookup', () => {
   });
 });
 
+describe('resolveVesselStatus: STOP dengan orig_fid = 0', () => {
+  const lastKnowns: Array<{
+    vessel_status: string | null;
+    orig_fid: number | null;
+  } | null> = [null];
+  for (const vessel_status of [null, 'EMPTY', 'LOADED', 'UNKNOWN'])
+    for (const orig_fid of [null, 0, 3, 7])
+      lastKnowns.push({ vessel_status, orig_fid });
+
+  it('STOP + orig_fid = 0 selalu UNKNOWN, apa pun riwayatnya', () => {
+    for (const lastKnown of lastKnowns)
+      expect(resolveVesselStatus(0, lastKnown, 'STOP')).toBe('UNKNOWN');
+  });
+
+  it('di luar kombinasi itu hasilnya sama persis dengan sebelumnya', () => {
+    for (const opStatus of ['STOP', 'RUNNING', 'IDLE', 'OFFLINE', undefined])
+      for (const origFid of [0, 1, 3, 5, 7, 9])
+        for (const lastKnown of lastKnowns) {
+          if (origFid === 0 && opStatus === 'STOP') continue;
+          expect(resolveVesselStatus(origFid, lastKnown, opStatus)).toBe(
+            resolveVesselStatus(origFid, lastKnown),
+          );
+        }
+  });
+
+  it('STOP di dalam segment (orig_fid <> 0) tetap memakai arah segment', () => {
+    expect(
+      resolveVesselStatus(4, { vessel_status: 'LOADED', orig_fid: 3 }, 'STOP'),
+    ).toBe('EMPTY');
+    expect(
+      resolveVesselStatus(3, { vessel_status: 'EMPTY', orig_fid: 4 }, 'STOP'),
+    ).toBe('LOADED');
+    expect(
+      resolveVesselStatus(4, { vessel_status: 'LOADED', orig_fid: 4 }, 'STOP'),
+    ).toBe('LOADED');
+  });
+
+  it.each(['RUNNING', 'IDLE', 'OFFLINE'])(
+    '%s di luar segment tetap mempertahankan status terakhir',
+    (opStatus) => {
+      const lastKnown = { vessel_status: 'LOADED', orig_fid: 4 };
+      expect(resolveVesselStatus(0, lastKnown, opStatus)).toBe('LOADED');
+    },
+  );
+
+  it('urutan: LOADED -> STOP di area parkir -> jalan lagi -> masuk segment', () => {
+    // acuan = log terakhir di dalam segment (fid 4, LOADED); baris UNKNOWN
+    // (fid 0) tidak pernah menjadi acuan arah.
+    const lastKnown = { vessel_status: 'LOADED', orig_fid: 4 };
+    expect(resolveVesselStatus(4, lastKnown, 'RUNNING')).toBe('LOADED');
+    expect(resolveVesselStatus(0, lastKnown, 'STOP')).toBe('UNKNOWN');
+    expect(resolveVesselStatus(0, lastKnown, 'RUNNING')).toBe('LOADED');
+    expect(resolveVesselStatus(4, lastKnown, 'RUNNING')).toBe('LOADED');
+    expect(resolveVesselStatus(3, lastKnown, 'RUNNING')).toBe('LOADED');
+    expect(resolveVesselStatus(5, lastKnown, 'RUNNING')).toBe('EMPTY');
+  });
+
+  it('needsLastKnownLookup: tidak perlu query bila hasilnya pasti UNKNOWN', () => {
+    expect(
+      needsLastKnownLookup(
+        0,
+        { vessel_status: 'UNKNOWN', orig_fid: 0 },
+        'STOP',
+      ),
+    ).toBe(false);
+    expect(
+      needsLastKnownLookup(0, { vessel_status: null, orig_fid: 0 }, 'STOP'),
+    ).toBe(false);
+  });
+
+  it('needsLastKnownLookup: setelah parkir, mulai jalan di luar perlu query sekali', () => {
+    // log terakhir = baris UNKNOWN (fid 0) -> status belum diketahui
+    expect(
+      needsLastKnownLookup(
+        0,
+        { vessel_status: 'UNKNOWN', orig_fid: 0 },
+        'RUNNING',
+      ),
+    ).toBe(true);
+    // baris berikutnya sudah membawa status -> tidak perlu query lagi
+    expect(
+      needsLastKnownLookup(
+        0,
+        { vessel_status: 'LOADED', orig_fid: 0 },
+        'RUNNING',
+      ),
+    ).toBe(false);
+  });
+
+  it('needsLastKnownLookup: perilaku lain tidak berubah', () => {
+    for (const opStatus of ['RUNNING', 'IDLE', 'OFFLINE', 'STOP', undefined])
+      for (const origFid of [1, 3, 5])
+        for (const lastLog of lastKnowns)
+          expect(needsLastKnownLookup(origFid, lastLog, opStatus)).toBe(
+            needsLastKnownLookup(origFid, lastLog),
+          );
+  });
+});
+
 describe('locateInGeofence', () => {
   const square = (minX: number, props: Record<string, unknown>) => ({
     type: 'Feature',
