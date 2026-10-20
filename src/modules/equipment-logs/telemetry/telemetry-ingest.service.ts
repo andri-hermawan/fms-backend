@@ -118,16 +118,8 @@ export class TelemetryIngestService {
     // STEP 4: Load the latest log once; reuse it for all comparisons below.
     const lastLog = await this.repository.findByIdLastEquip(equipmentId);
 
-    // STEP 5: Determine vessel status from the current geofence and the last
-    // log that was inside a polygon (status dipertahankan saat di luar polygon).
-    const lastKnown = await this.resolveLastKnownSegment(
-      equipmentId,
-      origFid,
-      lastLog,
-    );
-    const vesselStatus = resolveVesselStatus(origFid, lastKnown);
-
-    // STEP 6: Determine operational status.
+    // STEP 5: Determine operational status (dihitung lebih dulu karena
+    // vessel status bergantung pada STOP + orig_fid = 0).
     const opStatus = resolveOperationalStatus({
       gsmSignal,
       gsmOperator: gsm_operator,
@@ -136,6 +128,17 @@ export class TelemetryIngestService {
       diffMinutes: this.minutesSinceLastLog(lastLog),
       idleThreshold: origFid === 0 ? 10 : 5,
     });
+
+    // STEP 6: Determine vessel status from the current geofence and the last
+    // log that was inside a polygon (status dipertahankan saat di luar polygon;
+    // UNKNOWN hanya saat STOP dengan orig_fid = 0).
+    const lastKnown = await this.resolveLastKnownSegment(
+      equipmentId,
+      origFid,
+      lastLog,
+      opStatus,
+    );
+    const vesselStatus = resolveVesselStatus(origFid, lastKnown, opStatus);
 
     // STEP 7: Fuel calibration (di-memo; dipakai ulang oleh fuel detector).
     const lookupCalibration = createCalibrationLookup(
@@ -312,8 +315,11 @@ export class TelemetryIngestService {
     equipmentId: string,
     origFid: number,
     lastLog: LastLog | null,
+    operationalStatus: string,
   ): Promise<SegmentLog | null> {
-    if (!needsLastKnownLookup(origFid, lastLog)) return lastLog;
+    if (!needsLastKnownLookup(origFid, lastLog, operationalStatus)) {
+      return lastLog;
+    }
     try {
       return await this.repository.findLastKnownSegment(equipmentId);
     } catch (e: unknown) {
