@@ -6,8 +6,8 @@
  * Teltonika FMC125 TCP Simulator
  * Compatible with:
  * - Codec 8
- * - Your TeltonikaTcpService
- * - Your TeltonikaParserService
+ * - Your DeviceTcpService
+ * - Your TeltonikaCodecParser + adapter
  */
 
 const net = require('net');
@@ -378,7 +378,7 @@ function buildIOElements(){
  * ============================================================
  * PART 3
  * IO ELEMENTS
- * Sesuai dengan TeltonikaParserService Anda
+ * Sesuai dengan TeltonikaCodecParser + adapter Anda
  * ============================================================
  */
 

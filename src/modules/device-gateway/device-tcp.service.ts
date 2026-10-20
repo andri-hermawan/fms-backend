@@ -6,19 +6,22 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as net from 'net';
-import { TeltonikaParserService } from './teltonika-parser.service';
-import { EquipmentLogsService } from './equipment-logs.service';
+import { TeltonikaCodecParser } from './protocols/teltonika/teltonika-codec.parser';
+import { DeviceAdapterRegistry } from './adapters/adapter.registry';
+import { EquipmentLogsService } from '../equipment-logs/equipment-logs.service';
+import { CreateEquipmentLogDto } from '../equipment-logs/dto/create-equipment-log.dto';
 import { DevicesRepository } from '../devices/repositories/devices.repository';
 
 @Injectable()
-export class TeltonikaTcpService implements OnModuleInit, OnModuleDestroy {
+export class DeviceTcpService implements OnModuleInit, OnModuleDestroy {
   private server!: net.Server;
   private readonly PORT: number;
   private readonly isProduction: boolean;
-  private readonly logger = new Logger(TeltonikaTcpService.name);
+  private readonly logger = new Logger(DeviceTcpService.name);
 
   constructor(
-    private readonly parserService: TeltonikaParserService,
+    private readonly codecParser: TeltonikaCodecParser,
+    private readonly adapterRegistry: DeviceAdapterRegistry,
     private readonly equipmentLogsService: EquipmentLogsService,
     private readonly devicesRepository: DevicesRepository,
     private readonly configService: ConfigService,
@@ -79,7 +82,7 @@ export class TeltonikaTcpService implements OnModuleInit, OnModuleDestroy {
               //   `[TCP] 🔍 Memproses IMEI Buffer: ${imeiBuffer.toString('hex')}`,
               // );
 
-              imei = this.parserService.parseImei(imeiBuffer);
+              imei = this.codecParser.parseImei(imeiBuffer);
               buffer = buffer.slice(2 + length);
 
               // [X-RAY LOG]: Pastikan IMEI berhasil ter-parse jadi teks
@@ -135,13 +138,21 @@ export class TeltonikaTcpService implements OnModuleInit, OnModuleDestroy {
                 continue;
               }
 
-              const parsed = this.parserService.parseData(packet);
+              // Adapter dipilih dari devices.device_model (kosong -> generic)
+              const device = await this.devicesRepository.findByCode(imei);
+              const adapter = this.adapterRegistry.resolve(
+                device?.device_model,
+              );
+
+              const parsed = this.codecParser.parsePacket(packet, {
+                variableLengthIo: adapter.readVariableLengthIo,
+              });
 
               if (parsed && parsed.records.length > 0) {
-                const device = await this.devicesRepository.findByCode(imei);
                 if (!device) continue;
 
-                for (const record of parsed.records) {
+                for (const rawRecord of parsed.records) {
+                  const record = adapter.normalize(rawRecord);
                   const recordYear = new Date(record.timestamp).getFullYear();
                   if (recordYear < 2025) {
                     continue;
@@ -151,13 +162,13 @@ export class TeltonikaTcpService implements OnModuleInit, OnModuleDestroy {
                   if (!this.isProduction) {
                     this.logger.log(
                       `[Monitoring Data GPS TRACKER] 
-                        time: ${record.timestamp} (${new Date(record.timestamp).toISOString()}),
+                        time: ${String(record.timestamp)} (${new Date(record.timestamp).toISOString()}),
                         latitude: ${record.latitude},
                         longitude: ${record.longitude}, 
                         fuel_level: ${record.lls_fuel_level_1 ?? 0}, 
                         fuel_temperature: ${record.lls_temperature_1 ?? 0}, 
                         speed: ${record.speed}, 
-                        mileage: ${record.odometer}, 
+                        mileage: ${record.mileage},
                         engine_status: ${record.ignition}, 
                         gsm_signal: ${record.gsm_signal}, 
                         gsm_operator: ${record.gsm_operator},
@@ -223,7 +234,6 @@ export class TeltonikaTcpService implements OnModuleInit, OnModuleDestroy {
                   //   `[Fuel Sensor]
                   //     Lls Fuel Level 1: ${record.lls_fuel_level_1},
                   //     Lls Temperature 1: ${record.lls_temperature_1},
-                  //     UL202: ${record.ul202},
                   //   `,
                   // );
                   // console.log(
@@ -248,6 +258,8 @@ export class TeltonikaTcpService implements OnModuleInit, OnModuleDestroy {
                   // console.log(`------------------------------------------`);
 
                   // Simpan ke Log Historis via Service (banyak logic di dalamnya)
+                  // Nilai sensor yang tidak ada diteruskan sebagai null persis
+                  // seperti sebelumnya, maka di-cast ke DTO (bertipe `?: number`).
                   await this.equipmentLogsService.create({
                     time: new Date().toISOString(),
                     equipment_id: device.equipment_id ?? undefined,
@@ -267,7 +279,7 @@ export class TeltonikaTcpService implements OnModuleInit, OnModuleDestroy {
                     accelerometer_y: record.accelerometer_y,
                     accelerometer_z: record.accelerometer_z,
                     odometer: record.odometer,
-                    mileage: record.odometer,
+                    mileage: record.mileage,
                     external_voltage: record.external_voltage,
                     internal_battery_voltage: record.internal_battery_voltage,
                     battery_current: record.battery_current,
@@ -277,7 +289,7 @@ export class TeltonikaTcpService implements OnModuleInit, OnModuleDestroy {
                     sleep_mode: record.sleep_mode,
                     movement_runtime: record.movement_runtime,
                     analog_input_1: record.analog_input_1,
-                  });
+                  } as CreateEquipmentLogDto);
                 }
 
                 // ACK: Balas dengan jumlah data (4 bytes)
@@ -307,7 +319,9 @@ export class TeltonikaTcpService implements OnModuleInit, OnModuleDestroy {
     });
 
     this.server.listen(this.PORT, '0.0.0.0', () => {
-      this.logger.log(`🚀 Teltonika TCP Server listening on port ${this.PORT}`);
+      this.logger.log(
+        `🚀 Device TCP Server (protokol Teltonika) listening on port ${this.PORT}`,
+      );
     });
   }
 }

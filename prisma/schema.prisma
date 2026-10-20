@@ -477,6 +477,7 @@ model fuel_calibrations {
   equipment_id String     @db.Uuid
   fuel_volume  Decimal    @db.Decimal(10, 2)
   fuel_level   Decimal    @db.Decimal(10, 2)
+  calibration_type String @default("LLS") @db.VarChar(20)
   created_at   DateTime?  @default(now()) @db.Timestamp(6)
   created_by   String?    @db.Uuid
   updated_at   DateTime?  @db.Timestamp(6)

@@ -17,11 +17,7 @@ export class FuelCalibrationsService {
   constructor(private readonly repository: FuelCalibrationsRepository) {}
 
   async create(dto: CreateFuelCalibrationDto, userId: string) {
-    if (dto.fuel_volume <= 0 || dto.fuel_level <= 0) {
-      throw new ConflictException(
-        'Fuel volume dan fuel level harus lebih dari 0.',
-      );
-    }
+    this.assertValidInput(dto);
 
     const calibrations = this.buildCalibrations(dto, userId);
 
@@ -44,11 +40,7 @@ export class FuelCalibrationsService {
    * Konsep: hapus semua calibration milik equipment lalu buat ulang.
    */
   async updateByEquipment(dto: CreateFuelCalibrationDto, userId: string) {
-    if (dto.fuel_volume <= 0 || dto.fuel_level <= 0) {
-      throw new ConflictException(
-        'Fuel volume dan fuel level harus lebih dari 0.',
-      );
-    }
+    this.assertValidInput(dto);
 
     const calibrations = this.buildCalibrations(dto, userId);
 
@@ -63,10 +55,32 @@ export class FuelCalibrationsService {
     });
   }
 
+  private assertValidInput(dto: CreateFuelCalibrationDto) {
+    const isPercentage = dto.calibration_type === 'PERCENTAGE';
+
+    if (dto.fuel_volume <= 0 || (!isPercentage && !(dto.fuel_level! > 0))) {
+      throw new ConflictException(
+        'Fuel volume dan fuel level harus lebih dari 0.',
+      );
+    }
+  }
+
   /**
    * Membuat daftar titik calibration (kelipatan 5 liter) dari DTO.
+   * LLS        : level = round(volume / kapasitas * level maksimum LLS).
+   * PERCENTAGE : level = volume / kapasitas * 100 (2 desimal, tanpa pembulatan
+   *              integer agar resolusi ECU tidak hilang).
    */
   private buildCalibrations(dto: CreateFuelCalibrationDto, userId: string) {
+    const calibrationType = dto.calibration_type ?? 'LLS';
+    const isPercentage = calibrationType === 'PERCENTAGE';
+    const maxLevel = isPercentage ? 100 : dto.fuel_level!;
+
+    const toLevel = (fuelVolume: number) => {
+      const level = (fuelVolume / dto.fuel_volume) * maxLevel;
+      return isPercentage ? Number(level.toFixed(2)) : Math.round(level);
+    };
+
     const calibrations = Array.from(
       { length: Math.floor(dto.fuel_volume / 5) + 1 },
       (_, index) => {
@@ -75,9 +89,8 @@ export class FuelCalibrationsService {
         return {
           equipment_id: dto.equipment_id,
           fuel_volume: fuelVolume,
-          fuel_level: Math.round(
-            (fuelVolume / dto.fuel_volume) * dto.fuel_level,
-          ),
+          fuel_level: toLevel(fuelVolume),
+          calibration_type: calibrationType,
           created_by: userId,
         };
       },
@@ -87,7 +100,8 @@ export class FuelCalibrationsService {
       calibrations.push({
         equipment_id: dto.equipment_id,
         fuel_volume: dto.fuel_volume,
-        fuel_level: dto.fuel_level,
+        fuel_level: maxLevel,
+        calibration_type: calibrationType,
         created_by: userId,
       });
     }

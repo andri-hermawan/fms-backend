@@ -2,8 +2,6 @@ import { Module } from '@nestjs/common';
 import { EquipmentLogsService } from './equipment-logs.service';
 import { EquipmentLogsController } from './equipment-logs.controller';
 import { EquipmentLogsRepository } from './repositories/equipment-logs.repository';
-import { TeltonikaParserService } from './teltonika-parser.service';
-import { TeltonikaTcpService } from './teltonika-tcp.service';
 import { TelemetryIngestService } from './telemetry/telemetry-ingest.service';
 import { EquipmentSnapshotService } from './telemetry/equipment-snapshot.service';
 import { GeofenceEventService } from './geofence-events/geofence-event.service';
@@ -44,8 +42,6 @@ import { WhatsappModule } from '../whatsapp/whatsapp.module';
   providers: [
     EquipmentLogsService,
     EquipmentLogsRepository,
-    TeltonikaParserService,
-    TeltonikaTcpService,
     // Pipeline telemetry
     TelemetryIngestService,
     EquipmentSnapshotService,
